@@ -16,7 +16,8 @@ header {
 h1 { margin: 0; font-size: 20px; letter-spacing: 3px; color: var(--cyan); }
 .status { display: flex; align-items: center; gap: 10px; }
 .badge { padding: 3px 10px; border: 1px solid var(--cyan); color: var(--cyan); border-radius: 3px; white-space: nowrap; }
-#timer { font-size: 24px; min-width: 40px; text-align: right; }
+#timer { font-size: 24px; min-width: 40px; text-align: right; white-space: nowrap; }
+#clock { font-family: Consolas, "Courier New", monospace; color: var(--dim); white-space: nowrap; }
 .sci { color: var(--amber); white-space: nowrap; }
 button {
   background: #12233a; color: var(--text); border: 1px solid var(--line);
@@ -109,3 +110,4 @@ body.storm .badge { border-color: var(--red); color: #fff; background: var(--red
   #systems, #crewbar { grid-template-columns: repeat(2, 1fr); }
   h1 { font-size: 16px; }
 }
+.card .life small { display: block; color: var(--dim); margin-top: 3px; }

@@ -7,6 +7,7 @@ A browser game for the NASA Space Apps Challenge 2026, **Build a Junior Astronau
 - Drag astronauts between rooms. Outside they collect science, but have no protection.
 - When the alarm sounds, get everyone down to the Storm Shelter before the radiation hits.
 - Share limited power between oxygen, water, food and the radiation shield.
+- Oxygen, water and food are measured in real kilograms and used at NASA's published rates. The oxygen machine splits water to make air, so running out of water means running out of air.
 - When a machine breaks, send someone to the Workshop and fix it with a quick plug-matching puzzle.
 - After each storm, a debrief card shows what really happened, using NASA's own record of that flare.
 
@@ -43,5 +44,7 @@ This runs `build.js` first, which wraps `index.html` into a full web page in `di
 | `firebase.json`, `.firebaserc` | Firebase Hosting settings and project |
 
 ## Data credit
+
+Crew oxygen, water and food use: NASA Life Support Baseline Values and Assumptions Document (BVAD), NASA/TP-2015-218570 Rev2, 2022.
 
 Solar flare and solar energetic particle records: NASA Community Coordinated Modeling Center (CCMC), [DONKI](https://ccmc.gsfc.nasa.gov/tools/DONKI/) Space Weather Database Of Notifications, Knowledge, Information.

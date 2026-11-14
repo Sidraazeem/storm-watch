@@ -16,7 +16,7 @@ Every element of the challenge brief maps to something the player does. Brief as
 | --- | --- |
 | Interactive game for students | Drag-and-drop base game, about 6 minutes a run, almost no reading during play |
 | Lunar or Martian outpost | 4-person base at the lunar south pole: surface, Greenhouse, Workshop, Storm Shelter |
-| Life support | Oxygen and water tanks drain per crew member; machines refill them if powered |
+| Life support | Oxygen, water and food are tracked in real kg and drain per crew member at NASA BVAD rates (more when working outside, less when resting in the shelter). The oxygen machine makes air from water by electrolysis, so water and oxygen are linked |
 | Radiation shielding | Rooms shield differently (surface 100%, Greenhouse and Workshop 50%, Shelter 10% of outside dose); a powered water-wall shield cuts up to 60% more; crew radiation dose is tracked against a career limit |
 | Power | 14 kW shared between four systems with + / −; drops to 10 kW when solar panels fold during a storm |
 | Food | Greenhouse grow lights plus crew working there; plants visibly wilt as food runs low |
@@ -59,7 +59,9 @@ All storm data comes from NASA's DONKI space-weather API (`ccmc.gsfc.nasa.gov/DO
 
 Warning time = minutes from flare peak to the first linked solar energetic particle (SEP) event, preferring the >100 MeV detector.
 
-**Real vs. game tuning:** flare class, dates, sunspot region and warning times are real. Storm strength in play, countdown lengths, supply rates and the 1,000 mSv evacuation point are game settings chosen for difficulty, not NASA values. The 600 mSv line shown on dose bars is NASA's astronaut career limit. Not used yet: Curiosity RAD readings, the life-support baseline (BVAD) numbers, Moon Trek imagery.
+**Real vs. game tuning:** flare class, dates, sunspot region and warning times are real. Crew oxygen, water and food use per day come from NASA's Life Support Baseline Values and Assumptions Document (BVAD, NASA/TP-2015-218570 Rev2, 2022), and the water-to-oxygen ratio (18 kg water gives 16 kg oxygen) is real chemistry. Storm strength in play, tank sizes, machine output, which BVAD rate goes with which activity, and the 1,000 mSv evacuation point are game settings chosen for difficulty, not NASA values. The 600 mSv line shown on dose bars is NASA's astronaut career limit. Not used yet: Curiosity RAD readings, Moon Trek imagery.
+
+**Time scale:** 1 game second = 1 hour on the base, shown as a Day / time clock in the header. During the storm warning the clock slows so the countdown covers the real warning time from NASA's records (47 minutes for storm 2, 19 for storm 3, a 30-minute drill for storm 1 when no radiation followed).
 
 ## Running it and the code
 
@@ -92,7 +94,7 @@ Next steps (put a name on each):
 - [x] Host a shareable link on Firebase (storm-watch-spaceapps.web.app)
 - [ ] Visual polish: Moon Trek south pole imagery, better astronaut art, more storm effects
 - [ ] Gemini as Mission Control: varied crisis lines and an after-action debrief, with scripted lines as fallback
-- [ ] Use life-support baseline (BVAD) numbers for oxygen, water and food use, and cite them
+- [x] Use life-support baseline (BVAD) numbers for oxygen, water and food use, and cite them
 - [ ] Test on phone and tablet
 - [ ] Record the demo video and write the project page
 

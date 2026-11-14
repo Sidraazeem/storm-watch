@@ -92,12 +92,43 @@ const SYSTEMS = {
 };
 const KW_PER_LEVEL = 2, WALK = 110;
 
+// ---------- life support: real NASA consumption rates ----------
+// kg per crew member per day, from NASA's Life Support Baseline Values and Assumptions Document
+// (BVAD, NASA/TP-2015-218570 Rev2, Feb 2022), as summarized in NASA NTRS 20230013896 and 20220002294.
+//   Oxygen: 0.84 (surface) / 0.89 (nominal) / 1.08 (high) kg/day
+//   Drinking water: 1.78 (5th percentile) / 2.79 (baseline) / 3.89 (95th percentile) kg/day
+//   Food: 1.80 kg/day as shipped (30%-hydration food)
+// Game choice, not NASA: which rate goes with which activity. Resting in the shelter uses
+// the low end, working inside the baseline, hard work outside on the surface the high end.
+const BVAD = {
+  rest:    { o2: 0.84, h2o: 1.78, food: 1.80 },
+  work:    { o2: 0.89, h2o: 2.79, food: 1.80 },
+  outside: { o2: 1.08, h2o: 3.89, food: 1.80 },
+};
+const activity = c => c.path.length ? 'work' : c.zone === 'shelter' ? 'rest' : c.zone === 'eva' ? 'outside' : 'work';
+// The oxygen machine splits water by electrolysis (2 H2O -> 2 H2 + O2): 18 kg of water gives 16 kg of oxygen.
+const H2O_PER_O2 = 18 / 16;
+// Tank sizes (kg) and machine output per power level (kg per hour). Game settings, sized so that
+// power level 2 roughly keeps up with 4 crew working inside.
+const TANK = { o2: 12, h2o: 46, food: 38 };
+const MAKE = { o2: 0.075, h2o: 0.32, farm: 0.09, farmer: 0.075 };
+// Time scale: 1 game second = 1 hour on the base. During the warning countdown the clock slows
+// down so that the countdown covers the real warning time from NASA's records.
+const warnMins = ev => ev.mins != null ? ev.mins : 30;
+const hoursPerSec = ev => S.phase === 'warning' ? warnMins(ev) / 60 / ev.warn : 1;
+const pct = k => S.tanks[k] / TANK[k] * 100;
+function clock(h) {
+  const m = Math.floor(h * 60);
+  return `Day ${Math.floor(m / 1440) + 1} · ${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+}
+
 let S; // game state
 
 function newGame() {
   S = {
     round: 0, phase: 'brief', t: 0, dur: 1, I: 0, supply: 14, sel: null, drag: null, ptr: null, science: 0,
-    tanks: { o2: 70, h2o: 70, food: 70 },
+    tanks: { o2: TANK.o2 * 0.7, h2o: TANK.h2o * 0.7, food: TANK.food * 0.7 },
+    hours: 0, rate: { o2: 0, h2o: 0, food: 0 }, dry: false,
     sys: { o2: { lvl: 2 }, h2o: { lvl: 2 }, farm: { lvl: 2 }, shield: { lvl: 0 } },
     crew: [
       { id: 'ada',  name: 'Ada',  role: 'Pilot',     perk: 'runs 2x faster',     color: '#37d6ff', zone: 'work' },
@@ -177,17 +208,24 @@ function render() {
   document.body.className = S.phase;
   $('#round').textContent = `Storm ${Math.min(S.round + 1, EVENTS.length)} / ${EVENTS.length}`;
   $('#phase').textContent = { brief: 'STANDBY', calm: 'ALL CLEAR', warning: 'STORM INCOMING', storm: 'RADIATION STORM', debrief: 'DEBRIEF', end: 'MISSION OVER' }[S.phase];
-  $('#timer').textContent = playing() ? Math.ceil(S.t) : '--';
+  const hps = playing() ? hoursPerSec(EVENTS[S.round]) : 1;
+  $('#timer').textContent = !playing() ? '--' : S.phase === 'warning' ? Math.ceil(S.t * hps * 60) + ' min' : Math.ceil(S.t * hps) + ' h';
+  $('#clock').textContent = clock(S.hours);
   $('#pwrUsed').textContent = used(); $('#pwrMax').textContent = S.supply;
   $('#pwrBar').style.width = Math.min(100, used() / S.supply * 100) + '%';
   $('#science').textContent = Math.floor(S.science);
   for (const k in S.sys) {
     const s = S.sys[k], def = SYSTEMS[k], el = document.querySelector(`.sys[data-s="${k}"]`);
-    const v = def.tank ? S.tanks[def.tank] : lvl('shield') * 20;
+    const v = def.tank ? pct(def.tank) : lvl('shield') * 20;
     el.classList.toggle('broken', s.broken);
     el.classList.toggle('low', !!def.tank && v < 25);
     el.querySelectorAll('.pips i').forEach((p, i) => p.classList.toggle('on', i < s.lvl));
-    el.querySelector('small').textContent = s.broken ? 'BROKEN' : def.tank ? Math.round(v) + '%' : v ? `-${v}% radiation` : 'off';
+    let label = v ? `-${v}% radiation` : 'off';
+    if (def.tank) {
+      const kg = S.tanks[def.tank], r = S.rate[def.tank];
+      label = kg.toFixed(1) + ' kg' + (r < -1e-6 ? ` · ${Math.min(99, Math.floor(kg / -r))} h left` : r > 1e-6 ? ' ▲' : '');
+    }
+    el.querySelector('small').textContent = s.broken ? 'BROKEN' : label;
     el.querySelector('.bar i').style.width = (def.tank ? v : v / 0.6) + '%';
   }
   S.crew.forEach(c => {
@@ -227,7 +265,7 @@ const radAt = c => !c.path.length ? ZONES[c.zone].rad : c.y <= SURF + 2 ? 1 : c.
 function setPhase(p, dur, banner) { S.phase = p; S.t = S.dur = dur; if (banner) S.banner = { text: banner, t: 2.2 }; }
 
 function startRound() {
-  S.stats = { breaks: 0 };
+  S.stats = { breaks: 0, hours: 0, use: { o2: 0, h2o: 0, food: 0 }, split: 0 };
   setPhase('calm', 25, 'ALL CLEAR');
   $('#modal').classList.remove('show', 'fixing');
   log('All clear. Collect science outside and keep supplies topped up.', 'good', true);
@@ -250,14 +288,23 @@ function tick() {
 
   const active = S.crew.filter(c => !c.out);
 
-  // supplies
-  const eat = active.length / 4;
+  // supplies, in real kg, at NASA BVAD rates (see BVAD above)
+  const h = dt * hoursPerSec(ev), T = S.tanks;
+  S.hours += h; S.stats.hours += h;
+  const use = { o2: 0, h2o: 0, food: 0 };            // kg per hour for the whole crew
+  active.forEach(c => { const r = BVAD[activity(c)]; for (const k in use) use[k] += r[k] / 24; });
   const farmers = at('green').reduce((a, c) => a + (c.role === 'Botanist' ? 2 : 1), 0);
-  const T = S.tanks;
-  T.o2   += (0.6 * lvl('o2')  - 1.2 * eat) * dt;
-  T.h2o  += (0.5 * lvl('h2o') - 1.0 * eat) * dt;
-  T.food += ((lvl('farm') ? 0.25 * lvl('farm') + 0.2 * farmers : 0) - 0.8 * eat) * dt;
-  for (const k in T) T[k] = Math.max(0, Math.min(100, T[k]));
+  const makeFood = lvl('farm') ? MAKE.farm * lvl('farm') + MAKE.farmer * farmers : 0;
+  const makeH2o = MAKE.h2o * lvl('h2o');
+  // oxygen is made from water: no water, no oxygen
+  const wantO2 = MAKE.o2 * lvl('o2');
+  const makeO2 = Math.min(wantO2, Math.max(0, T.h2o + (makeH2o - use.h2o) * h) / H2O_PER_O2 / Math.max(h, 1e-9));
+  if (wantO2 > 0 && makeO2 < wantO2 * 0.5 && !S.dry) { S.dry = true; log('Water tank empty! The oxygen machine needs water to make air.', 'bad', true); }
+  if (makeO2 >= wantO2 * 0.5) S.dry = false;
+  S.rate = { o2: makeO2 - use.o2, h2o: makeH2o - use.h2o - makeO2 * H2O_PER_O2, food: makeFood - use.food };
+  for (const k in T) T[k] = Math.max(0, Math.min(TANK[k], T[k] + S.rate[k] * h));
+  for (const k in use) S.stats.use[k] += use[k] * h;
+  S.stats.split += makeO2 * H2O_PER_O2 * h;
 
   // science from the surface
   at('eva').forEach(c => {
@@ -305,7 +352,7 @@ function tick() {
   else if (S.t <= 0) {
     if (S.phase === 'calm') {
       setPhase('warning', ev.warn, 'STORM INCOMING');
-      log(`${ev.cls} solar flare detected! Radiation storm hits in ${ev.warn} seconds. Everyone to the Storm Shelter!`, 'warn', true);
+      log(`${ev.cls} solar flare detected! Radiation arrives in ${warnMins(ev)} minutes${ev.mins != null ? '' : ' (drill)'}. Everyone to the Storm Shelter!`, 'warn', true);
     } else if (S.phase === 'warning') {
       setPhase('storm', ev.storm, 'RADIATION STORM'); S.shake = 0.8;
       log('The radiation storm has reached the outpost!', 'bad', true);
@@ -356,6 +403,10 @@ function debrief() {
     <h2>STORM ${S.round + 1} SURVIVED</h2>
     <ul>${S.crew.map(crewLine).join('')}</ul>
     <p>Systems knocked out: <b>${S.stats.breaks}</b> · Highest crew dose so far: <b>${Math.round(worst * 10)} mSv</b> (NASA career limit: 600 mSv)</p>
+    <p class="life">Over these <b>${Math.round(S.stats.hours)} hours</b> your crew breathed <b>${S.stats.use.o2.toFixed(1)} kg</b> of oxygen,
+      drank <b>${S.stats.use.h2o.toFixed(1)} kg</b> of water and ate <b>${S.stats.use.food.toFixed(1)} kg</b> of food.
+      The oxygen machine split <b>${S.stats.split.toFixed(1)} kg</b> of water to make air.
+      <small>Rates from NASA's Life Support Baseline Values and Assumptions Document (BVAD).</small></p>
     <h3>${ev.mins != null ? 'THIS REALLY HAPPENED' : 'REAL FLARE, PRACTICE STORM'} — ${ev.date}</h3>
     <div class="real"><b>${ev.title}.</b> ${ev.fact}</div>
     <table class="data">
@@ -374,7 +425,7 @@ function endGame() {
   S.phase = 'end'; S.I = 0;
   const alive = S.crew.filter(c => !c.out);
   const T = S.tanks;
-  const score = Math.round(S.science + S.crew.reduce((a, c) => a + c.health, 0) * 2 + T.o2 + T.h2o + T.food
+  const score = Math.round(S.science + S.crew.reduce((a, c) => a + c.health, 0) * 2 + pct('o2') + pct('h2o') + pct('food')
     - S.crew.reduce((a, c) => a + c.dose, 0));
   let rating = score >= 1000 ? 'FLIGHT DIRECTOR' : score >= 800 ? 'MISSION COMMANDER' : score >= 550 ? 'MISSION SPECIALIST' : 'CADET — BACK TO TRAINING';
   if (alive.length < 4 && score >= 800) rating = 'MISSION SPECIALIST';
@@ -385,7 +436,7 @@ function endGame() {
     <div class="rating">${rating}</div>
     <p>Score: <b>${score}</b> · Science: <b>${Math.floor(S.science)}</b> · Crew still on duty: <b>${alive.length} / 4</b></p>
     <ul>${S.crew.map(crewLine).join('')}</ul>
-    <p>Supplies left: oxygen ${Math.round(T.o2)}%, water ${Math.round(T.h2o)}%, food ${Math.round(T.food)}%</p>
+    <p>Mission length: ${clock(S.hours).replace(' · ', ', ')} · Supplies left: oxygen ${T.o2.toFixed(1)} kg, water ${T.h2o.toFixed(1)} kg, food ${T.food.toFixed(1)} kg</p>
     <button class="go" id="go">Play again</button>`, () => { newGame(); intro(); });
 }
 
@@ -407,6 +458,8 @@ function intro() {
       <li>🚨 When the alarm sounds, get everyone <b>down to the Storm Shelter</b>.</li>
       <li>🔧 If something breaks, send someone to the <b>Workshop</b> and press <b>FIX</b>.</li>
       <li>⚡ Use <b>+ / −</b> to share power between oxygen, water, food and the shield.</li>
+      <li>💧 The oxygen machine <b>splits water to make air</b>. Run out of water and the air runs out next.</li>
+      <li>⏱️ Each second is <b>one hour</b> on the base. Working outside uses the most air and water.</li>
     </ul>
     <p class="src" id="src">Contacting NASA for solar storm data…</p>
     <button class="go" id="go" disabled>Begin mission ▶</button>`, startRound);
@@ -535,19 +588,19 @@ function drawMachines(ts) {
   g.fillStyle = lit ? `rgba(200,110,255,${0.25 + lit * 0.2})` : '#222a38'; g.fillRect(gz.x + 40, gz.y + 34, gz.w - 80, 6);
   if (lit) { const lg = g.createLinearGradient(0, gz.y + 40, 0, gz.floor); lg.addColorStop(0, `rgba(200,110,255,${0.08 * lit})`); lg.addColorStop(1, 'rgba(200,110,255,0)'); g.fillStyle = lg; g.fillRect(gz.x + 40, gz.y + 40, gz.w - 80, 90); }
   for (let i = 0; i < 7; i++) {
-    const px = gz.x + 45 + i * 44, hgt = 8 + T.food * 0.42;
+    const px = gz.x + 45 + i * 44, hgt = 8 + pct('food') * 0.42;
     g.fillStyle = '#5a4634'; g.fillRect(px - 12, gz.floor - 8, 24, 8);
-    g.strokeStyle = T.food < 25 ? '#9a8f3a' : '#4be38a'; g.lineWidth = 3;
+    g.strokeStyle = pct('food') < 25 ? '#9a8f3a' : '#4be38a'; g.lineWidth = 3;
     g.beginPath(); g.moveTo(px, gz.floor - 8); g.lineTo(px + Math.sin(ts / 700 + i) * 2, gz.floor - 8 - hgt); g.stroke();
     g.fillStyle = g.strokeStyle; g.beginPath(); g.ellipse(px - 6, gz.floor - 8 - hgt * 0.6, 7, 3, -0.5, 0, 7); g.fill();
     g.beginPath(); g.ellipse(px + 6, gz.floor - 8 - hgt * 0.85, 7, 3, 0.5, 0, 7); g.fill();
   }
   // workshop: oxygen and water tanks double as supply gauges
   [['o2', 715, '#9fe8ff', 'O₂'], ['h2o', 885, '#3d8bff', 'H₂O']].forEach(([k, x, col, label]) => {
-    const y0 = 335, hh = 80, v = T[k] / 100, dead = S.sys[k].broken;
+    const y0 = 335, hh = 80, v = pct(k) / 100, dead = S.sys[k].broken;
     g.fillStyle = '#0a1220'; rr(x - 24, y0, 48, hh, 10); g.fill();
     g.save(); rr(x - 24, y0, 48, hh, 10); g.clip();
-    g.fillStyle = T[k] < 25 ? '#ff4d5e' : col; g.globalAlpha = dead ? 0.35 : 0.85; g.fillRect(x - 24, y0 + hh * (1 - v), 48, hh * v);
+    g.fillStyle = v < 0.25 ? '#ff4d5e' : col; g.globalAlpha = dead ? 0.35 : 0.85; g.fillRect(x - 24, y0 + hh * (1 - v), 48, hh * v);
     g.restore(); g.globalAlpha = 1;
     g.lineWidth = 3; g.strokeStyle = dead ? (blink ? '#ff4d5e' : '#5a1f28') : '#8fa3bd'; rr(x - 24, y0, 48, hh, 10); g.stroke();
     txt(label, x, y0 + hh / 2 + 5, 14, '#06101c', 'center');
