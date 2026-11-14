@@ -263,7 +263,7 @@ function drawAstro(c, x, y, ts, alpha = 1) {
       const w = h.img.naturalWidth;
       if (h.photo && h.art) g.drawImage(h.img, w * 0.2, w * 0.06, w * 0.6, w * 0.6, x - 13, y - 64, 26, 26);   // avatar: crop to the face
       else if (h.photo) g.drawImage(h.img, x - 13, y - 64, 26, 26);
-      else g.drawImage(h.img, w * 14 / 64, w * 10 / 64, w * 36 / 64, w * 36 / 64, x - 13, y - 64, 26, 26);
+      else g.drawImage(h.img, w * 0.18, w * 0.06, w * 0.64, w * 0.64, x - 13, y - 64, 26, 26);   // drawn portrait: crop to the face
     }
     g.restore(); g.imageSmoothingEnabled = true;
     g.strokeStyle = c.color; g.lineWidth = 1.5; circ(x, y - 51, 13); g.stroke();

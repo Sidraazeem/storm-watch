@@ -71,58 +71,79 @@ function headFor(c) {
   return HEADS[c.id];
 }
 
-// Head-and-shoulders portrait as an inline SVG (64 x 64 units), or the pixelated photo if there is one.
+// Head-and-shoulders portrait, or the team member's picture if there is one.
+// Drawn as an inline SVG (100 x 100 units) in the same cartoon style as the team avatars:
+// outlined face, white suit with a neck ring, role sash and a shoulder patch, dark navy background.
+const INK = '#1c2230';
+function shade(hex, f) {                       // darken (f < 1) or lighten (f > 1) a #rrggbb colour
+  const n = parseInt(hex.slice(1), 16), ch = s => Math.max(0, Math.min(255, Math.round(((n >> s) & 255) * f)));
+  return '#' + [16, 8, 0].map(s => ch(s).toString(16).padStart(2, '0')).join('');
+}
 function portrait(c, size = 40) {
   if (PHOTOS[c.id]) return `<span class="portrait photo${PHOTO_PX ? '' : ' art'}" style="width:${size}px;height:${size}px;border-color:${c.color}"><img src="${PHOTOS[c.id]}" alt="${esc(c.name)}"></span>`;
-  const p = c.look, hc = p.hairColor, sk = p.skin, acc = p.acc || [], hijab = p.hair === 'hijab';
+  const p = c.look, hc = p.hairColor, sk = p.skin, skD = shade(sk, 0.82), acc = p.acc || [], hijab = p.hair === 'hijab';
   const sash = c.sash || c.color, id = 'p' + Math.random().toString(36).slice(2, 8);
+  const ol = `stroke="${INK}" stroke-width="1.6" stroke-linejoin="round"`;
+  const hl = shade(hc, 1.6);
+  // [behind the head, in front of the face]
   const hair = {
-    short: [``, `<path d="M20 29 Q18 13 32 13 Q46 13 44 29 Q42 19 32 19 Q23 19 20 29Z" fill="${hc}"/>`],
-    swept: [``, `<path d="M20 28 Q17 12 34 12 Q48 13 44 27 Q41 18 27 21 Q22 22 20 28Z" fill="${hc}"/><path d="M27 21 Q35 15 44 22 Q38 17 27 21Z" fill="#fff" opacity=".12"/>`],
-    buzz: [``, `<path d="M21 26 Q22 15 32 15 Q42 15 43 26 Q32 19 21 26Z" fill="${hc}" opacity=".85"/>`],
-    long: [`<path d="M17 30 Q16 13 32 13 Q48 13 47 30 L49 53 L15 53Z" fill="${hc}"/>`, `<path d="M20 28 Q21 15 32 15 Q43 15 44 28 Q37 20 29 21 Q24 22 20 28Z" fill="${hc}"/>`],
-    curly: [`<g fill="${hc}"><circle cx="20" cy="27" r="6"/><circle cx="44" cy="27" r="6"/><circle cx="19" cy="36" r="5"/><circle cx="45" cy="36" r="5"/></g>`,
-      `<g fill="${hc}"><circle cx="23" cy="19" r="6"/><circle cx="32" cy="15" r="7"/><circle cx="41" cy="19" r="6"/><circle cx="20" cy="25" r="4.5"/><circle cx="44" cy="25" r="4.5"/></g>`],
-    bun: [`<circle cx="32" cy="10" r="5.5" fill="${hc}"/>`, `<path d="M20 29 Q18 14 32 14 Q46 14 44 29 Q42 19 32 19 Q23 19 20 29Z" fill="${hc}"/>`],
-    hijab: [`<path d="M13 56 Q11 31 18 21 Q24 11 32 11 Q40 11 46 21 Q53 31 51 56Z" fill="${hc}"/>`,
-      `<ellipse cx="32" cy="31" rx="11.5" ry="13.5" fill="none" stroke="${hc}" stroke-width="3"/><ellipse cx="32" cy="31" rx="12.5" ry="14.5" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width="1"/>`],
+    short: ['', `<path d="M27 41 Q23 15 50 14 Q77 15 73 41 Q70 27 59 25 Q51 30 41 26 Q31 29 27 41Z" fill="${hc}" ${ol}/><path d="M40 20 Q50 16 62 20" stroke="${hl}" stroke-width="1.4" fill="none" opacity=".5"/>`],
+    swept: ['', `<path d="M26 44 Q20 13 53 13 Q80 14 74 40 Q73 27 63 23 Q52 21 44 30 Q36 37 30 46Z" fill="${hc}" ${ol}/><path d="M47 18 Q58 15 68 22" stroke="${hl}" stroke-width="1.4" fill="none" opacity=".5"/>`],
+    buzz: ['', `<path d="M28 34 Q31 16 50 16 Q69 16 72 34 Q62 24 50 24 Q38 24 28 34Z" fill="${hc}" ${ol}/>`],
+    long: [`<path d="M24 42 Q20 13 50 12 Q80 13 76 42 L81 76 Q50 82 19 76Z" fill="${hc}" ${ol}/>`,
+      `<path d="M27 40 Q25 15 50 14 Q75 15 73 40 Q68 24 54 22 Q50 27 46 22 Q32 24 27 40Z" fill="${hc}" ${ol}/>`],
+    curly: [`<g fill="${hc}" ${ol}><circle cx="25" cy="40" r="8"/><circle cx="75" cy="40" r="8"/><circle cx="24" cy="53" r="7"/><circle cx="76" cy="53" r="7"/></g>`,
+      `<g fill="${hc}" ${ol}><circle cx="30" cy="30" r="8"/><circle cx="40" cy="20" r="9"/><circle cx="55" cy="17" r="9.5"/><circle cx="68" cy="24" r="8.5"/><circle cx="73" cy="34" r="6.5"/><circle cx="27" cy="38" r="6"/></g>`],
+    bun: [`<circle cx="50" cy="10" r="8.5" fill="${hc}" ${ol}/>`,
+      `<path d="M27 41 Q23 16 50 15 Q77 16 73 41 Q70 26 50 24 Q30 26 27 41Z" fill="${hc}" ${ol}/>`],
+    hijab: [`<path d="M19 74 Q14 42 25 25 Q35 10 50 10 Q65 10 75 25 Q86 42 81 74 Q66 82 50 82 Q34 82 19 74Z" fill="${hc}" ${ol}/>`,
+      `<ellipse cx="50" cy="43" rx="22.5" ry="24.5" fill="none" stroke="${hc}" stroke-width="4"/><path d="M33 22 Q50 12 67 22" stroke="${hl}" stroke-width="1.6" fill="none" opacity=".45"/>`],
   }[p.hair] || ['', ''];
   const emblem = {
     leaf: `<path d="M-2.6 2.4 Q-3 -2.6 2.8 -2.8 Q2.8 2.6 -2.6 2.4Z M-2.6 2.4 L1.5 -1.5" fill="#4be38a" stroke="#0b3a20" stroke-width=".6"/>`,
-    bearing: `<g><circle r="3.4" fill="none" stroke="#c9d4e0" stroke-width="1"/><circle r="1.25" fill="none" stroke="#c9d4e0" stroke-width=".8"/>${[0, 60, 120, 180, 240, 300].map(a => `<circle r=".62" cx="${(2.3 * Math.cos(a * Math.PI / 180)).toFixed(2)}" cy="${(2.3 * Math.sin(a * Math.PI / 180)).toFixed(2)}" fill="#eef3f8"/>`).join('')}</g>`,
+    bearing: `<g><circle r="3.4" fill="none" stroke="#4f5d70" stroke-width="1"/><circle r="1.25" fill="none" stroke="#4f5d70" stroke-width=".8"/>${[0, 60, 120, 180, 240, 300].map(a => `<circle r=".62" cx="${(2.3 * Math.cos(a * Math.PI / 180)).toFixed(2)}" cy="${(2.3 * Math.sin(a * Math.PI / 180)).toFixed(2)}" fill="#4f5d70"/>`).join('')}</g>`,
     rock: `<path d="M-3 2 L-2.4 -1 L-0.4 -2.6 L2.2 -1.6 L3 1.6 Z" fill="#9b8f84" stroke="#3a3029" stroke-width=".5"/><line x1="-0.5" y1="-0.5" x2="2.8" y2="-3.4" stroke="#e08a4f" stroke-width=".9"/>`,
-    star: `<path d="M0 -3.2 L0.9 -1 L3.1 -1 L1.4 0.4 L2 2.7 L0 1.3 L-2 2.7 L-1.4 0.4 L-3.1 -1 L-0.9 -1Z" fill="${c.color}"/>`,
+    star: `<path d="M0 -3.2 L0.9 -1 L3.1 -1 L1.4 0.4 L2 2.7 L0 1.3 L-2 2.7 L-1.4 0.4 L-3.1 -1 L-0.9 -1Z" fill="${c.color}" stroke="${INK}" stroke-width=".4"/>`,
   }[c.emblem];
-  const face = hijab ? { rx: 10.5, ry: 12.5 } : { rx: 12, ry: 14 };
-  const smile = p.smile === 2 ? 'M27 37 Q32 42 37 37' : 'M28.5 37.5 Q32 40 35.5 37.5';
-  return `<svg xmlns="http://www.w3.org/2000/svg" class="portrait" width="${size}" height="${size}" viewBox="0 0 64 64" aria-label="${esc(c.name)}">
-    <defs><clipPath id="${id}"><circle cx="32" cy="32" r="31"/></clipPath><clipPath id="${id}b"><path d="M6 64 Q8 52 20 50 L44 50 Q56 52 58 64Z"/></clipPath></defs>
-    <circle cx="32" cy="32" r="31" fill="#0a1424"/>
-    <g clip-path="url(#${id})">
+  const face = hijab ? { rx: 20.5, ry: 22.5 } : { rx: 22, ry: 24.5 };
+  const brow = hijab ? '#3a2a22' : shade(hc, 0.85);
+  const smile = p.smile === 2 ? 'M41 55 Q50 62 59 55' : 'M43 55.5 Q50 60 57 55.5';
+  return `<svg xmlns="http://www.w3.org/2000/svg" class="portrait" width="${size}" height="${size}" viewBox="0 0 100 100" aria-label="${esc(c.name)}">
+    <defs><clipPath id="${id}"><circle cx="50" cy="50" r="48.5"/></clipPath><clipPath id="${id}b"><path d="M6 104 Q8 78 31 72 L69 72 Q92 78 94 104Z"/></clipPath></defs>
+    <circle cx="50" cy="50" r="48.5" fill="#0a1424"/>
+    <g clip-path="url(#${id})"><g transform="translate(50 46) scale(1.12) translate(-50 -50)">
       ${hair[0]}
-      <path d="M6 64 Q8 52 20 50 L44 50 Q56 52 58 64Z" fill="#eef3f8"/>
+      <path d="M6 104 Q8 78 31 72 L69 72 Q92 78 94 104Z" fill="#eef3f8" ${ol}/>
       <g clip-path="url(#${id}b)">
-        ${c.edge ? `<line x1="10" y1="50" x2="46" y2="68" stroke="${c.edge}" stroke-width="8.5"/>` : ''}
-        <line x1="10" y1="50" x2="46" y2="68" stroke="${sash}" stroke-width="6.5"/>
+        <path d="M20 86 Q24 94 26 104 M80 86 Q76 94 74 104" stroke="#c9d4e0" stroke-width="2" fill="none"/>
+        ${c.edge ? `<line x1="34" y1="106" x2="86" y2="72" stroke="${c.edge}" stroke-width="14"/>` : ''}
+        <line x1="34" y1="106" x2="86" y2="72" stroke="${sash}" stroke-width="11"/>
       </g>
-      <circle cx="21" cy="58" r="4.6" fill="#0d1726" stroke="#8fa3bd" stroke-width=".7"/>
-      <g transform="translate(21 58)">${emblem}</g>
-      ${hijab ? '' : `<rect x="27.5" y="40" width="9" height="11" rx="3" fill="${sk}"/>`}
-      ${hijab ? `<path d="M13 56 Q11 31 18 21 Q24 11 32 11 Q40 11 46 21 Q53 31 51 56 Q42 50 32 50 Q22 50 13 56Z" fill="${hc}"/>` : ''}
-      <ellipse cx="32" cy="31" rx="${face.rx}" ry="${face.ry}" fill="${sk}"/>
-      ${hijab ? '' : `<ellipse cx="20.3" cy="32" rx="1.8" ry="3" fill="${sk}"/><ellipse cx="43.7" cy="32" rx="1.8" ry="3" fill="${sk}"/>`}
-      ${p.beard ? `<path d="M20.5 31 Q21 46 32 46 Q43 46 43.5 31 Q41 39.5 32 40 Q23 39.5 20.5 31Z" fill="${p.beard}"/><path d="M27.5 35.6 Q32 33.6 36.5 35.6 L36 36.6 Q32 35.4 28 36.6Z" fill="${p.beard}"/>` : ''}
-      <g fill="#1b1f27"><ellipse cx="27.5" cy="30.5" rx="1.4" ry="1.6"/><ellipse cx="36.5" cy="30.5" rx="1.4" ry="1.6"/></g>
-      <g stroke="${hijab ? '#2a1d16' : hc}" stroke-width="1.3" stroke-linecap="round" opacity=".9"><path d="M25 26.6 Q27.5 25.4 30 26.4"/><path d="M34 26.4 Q36.5 25.4 39 26.6"/></g>
-      <path d="${smile}" stroke="#7a3b2e" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+      <circle cx="24" cy="84" r="7" fill="#dfe8f2" ${ol}/>
+      <g transform="translate(24 84) scale(1.35)">${emblem}</g>
+      <ellipse cx="50" cy="72" rx="21" ry="6.5" fill="#d5dde7" ${ol}/>
+      <ellipse cx="50" cy="71" rx="15.5" ry="4.2" fill="#2a3446"/>
+      ${hijab ? '' : `<path d="M42 58 L42 71 Q50 75 58 71 L58 58Z" fill="${skD}" ${ol}/>`}
+      ${hijab ? '' : `<path d="M29 72 Q50 82 71 72" stroke="#c9d4e0" stroke-width="2.4" fill="none"/>`}
+      ${hijab ? `<path d="M30 60 Q32 76 50 77 Q68 76 70 60 Q66 72 50 72 Q34 72 30 60Z" fill="${shade(hc, 0.8)}"/>` : ''}
+      ${hijab ? '' : `<ellipse cx="28.5" cy="45" rx="4" ry="5.5" fill="${sk}" ${ol}/><ellipse cx="71.5" cy="45" rx="4" ry="5.5" fill="${sk}" ${ol}/>`}
+      <ellipse cx="50" cy="43" rx="${face.rx}" ry="${face.ry}" fill="${sk}" ${ol}/>
+      <circle cx="38" cy="51" r="3.6" fill="#ff7a7a" opacity=".22"/><circle cx="62" cy="51" r="3.6" fill="#ff7a7a" opacity=".22"/>
+      ${p.beard ? `<path d="M29 45 Q30 66 50 67 Q70 66 71 45 Q68 58 59 55 Q50 52 41 55 Q32 58 29 45Z" fill="${p.beard}" ${ol}/><path d="M42 53.5 Q50 50 58 53.5 Q50 52.5 42 53.5Z" fill="${p.beard}" ${ol}/>` : ''}
+      <g><ellipse cx="41" cy="43" rx="3.6" ry="3.3" fill="#fff" ${ol.replace('1.6', '1')}/><ellipse cx="59" cy="43" rx="3.6" ry="3.3" fill="#fff" ${ol.replace('1.6', '1')}/>
+        <circle cx="41.4" cy="43.4" r="2.3" fill="#3a2a22"/><circle cx="59.4" cy="43.4" r="2.3" fill="#3a2a22"/>
+        <circle cx="42.2" cy="42.4" r=".8" fill="#fff"/><circle cx="60.2" cy="42.4" r=".8" fill="#fff"/></g>
+      <g stroke="${brow}" stroke-width="2.4" stroke-linecap="round" fill="none"><path d="M36 36.5 Q41 34 46 36"/><path d="M54 36 Q59 34 64 36.5"/></g>
+      <path d="M48 47.5 Q50 51 52 47.5" stroke="${skD}" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+      <path d="${smile}" stroke="#6b2f25" stroke-width="1.8" fill="none" stroke-linecap="round"/>
       ${hair[1]}
-      ${acc.includes('glasses') ? `<g fill="#9fd8ff" fill-opacity=".18" stroke="${p.frame || '#1c2733'}" stroke-width="1.3"><rect x="23.3" y="27.4" width="8.4" height="6.4" rx="2"/><rect x="32.3" y="27.4" width="8.4" height="6.4" rx="2"/></g><line x1="31.7" y1="29.8" x2="32.3" y2="29.8" stroke="${p.frame || '#1c2733'}" stroke-width="1.3"/>` : ''}
-      ${acc.includes('earrings') && !hijab ? `<g fill="#ffd36b"><circle cx="20.2" cy="36.6" r="1.5"/><circle cx="43.8" cy="36.6" r="1.5"/></g>` : ''}
-      ${acc.includes('earrings') && hijab ? `<circle cx="22" cy="40" r="1.3" fill="#ffd36b"/>` : ''}
-      ${acc.includes('necklace') ? `<path d="M24 51.5 Q32 58.5 40 51.5" stroke="#ffd36b" stroke-width="1.1" fill="none"/><circle cx="32" cy="56" r="1.7" fill="#ffd36b"/>` : ''}
-      ${acc.includes('pin') ? `<circle cx="42.5" cy="45.5" r="1.6" fill="#ffd36b" stroke="#8a6a1c" stroke-width=".4"/>` : ''}
-    </g>
-    <circle cx="32" cy="32" r="31" fill="none" stroke="${c.color}" stroke-width="2"/>
+      ${acc.includes('glasses') ? `<g fill="#cfeaff" fill-opacity=".22" stroke="${p.frame || INK}" stroke-width="2.2"><rect x="33.5" y="37.5" width="14" height="11" rx="3.5"/><rect x="52.5" y="37.5" width="14" height="11" rx="3.5"/><path d="M47.5 42 Q50 40.5 52.5 42" fill="none"/><path d="M33.5 41 L28 39.5 M66.5 41 L72 39.5" fill="none"/></g>` : ''}
+      ${acc.includes('earrings') && !hijab ? `<g fill="#ffd36b" ${ol.replace('1.6', '.8')}><circle cx="28.5" cy="52.5" r="2.2"/><circle cx="71.5" cy="52.5" r="2.2"/></g>` : ''}
+      ${acc.includes('earrings') && hijab ? `<circle cx="31" cy="58" r="1.8" fill="#ffd36b" ${ol.replace('1.6', '.8')}/>` : ''}
+      ${acc.includes('necklace') ? `<path d="M38 77 Q50 85 62 77" stroke="#ffd36b" stroke-width="1.6" fill="none"/><circle cx="50" cy="82" r="2.4" fill="#ffd36b" ${ol.replace('1.6', '.8')}/>` : ''}
+      ${acc.includes('pin') ? `<circle cx="67" cy="64" r="2.2" fill="#ffd36b" ${ol.replace('1.6', '.8')}/>` : ''}
+    </g></g>
+    <circle cx="50" cy="50" r="48.5" fill="none" stroke="${c.color}" stroke-width="3"/>
   </svg>`;
 }
 
