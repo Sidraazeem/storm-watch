@@ -10,7 +10,7 @@ const DT = 0.25;
 const DONKI = 'https://ccmc.gsfc.nasa.gov/DONKI-API/get/';
 const SAVED_LIVE = { cls: 'M3.5', peak: '2026-11-05T18:33Z', region: null, loc: null };
 const CAMPAIGN = [
-  { key: 'live', title: 'Latest Big Flare', warn: 20, storm: 30 },
+  { key: 'live', title: 'Latest Big Flare', calm: 10 , warn: 20, storm: 30 },
   { key: '2024', flrID: '2024-05-11T01:10:00-FLR-001', from: '2024-05-11', to: '2024-05-11',
     title: 'The Gannon Storm', sev: 1.6, warn: 15, storm: 30,
     fact: 'This flare was part of a chain of eruptions in May 2024 that caused the strongest geomagnetic storm at Earth in over 20 years. People saw auroras much farther south than usual.',
@@ -19,6 +19,7 @@ const CAMPAIGN = [
     title: 'The X8.2 Flare', sev: 2.4, warn: 10, storm: 40,
     fact: 'One of the biggest flares of its solar cycle. On Mars, NASA\'s Curiosity rover measured surface radiation roughly doubling with its RAD instrument, the same kind of data future crews will rely on.',
     saved: { cls: 'X8.2', peak: '2017-09-10T16:06Z', region: 12673, loc: 'S08W88', sepTime: '2017-09-10T16:25Z', sepInst: 'GOES13: SEM/EPS >100 MeV' } },
+  
 ];
 
 // Flare classes go A, B, C, M, X; each letter is 10x stronger. Returns strength in "M units".
@@ -34,7 +35,8 @@ function makeEvent(c, d, fromNasa) {
     ev.fact = 'This is the strongest solar flare NASA recorded in the last 30 days. ' + (mins != null
       ? `Radiation particles from it were detected ${mins} minutes later.`
       : 'It did not send a radiation storm toward the Moon. Most flares don\'t, but a crew has to be ready every time, so this drill treats it as the real thing.');
-  }
+  } 
+  
   return ev;
 }
 
@@ -94,10 +96,20 @@ const KW_PER_LEVEL = 2, WALK = 110;
 
 let S; // game state
 
+const CARGO_BUDGET = 12;
+
+const CARGO = {
+  o2:   { label: 'Oxygen', cost: 2, amount: 10 },
+  h2o:  { label: 'Water',  cost: 2, amount: 10 },
+  food: { label: 'Food',   cost: 1, amount: 10 },
+};
+
+
 function newGame() {
   S = {
     round: 0, phase: 'brief', t: 0, dur: 1, I: 0, supply: 14, sel: null, drag: null, ptr: null, science: 0,
     tanks: { o2: 70, h2o: 70, food: 70 },
+    loadout: { o2: 0, h2o: 0, food: 0},
     sys: { o2: { lvl: 2 }, h2o: { lvl: 2 }, farm: { lvl: 2 }, shield: { lvl: 0 } },
     crew: [
       { id: 'ada',  name: 'Ada',  role: 'Pilot',     perk: 'runs 2x faster',     color: '#37d6ff', zone: 'work' },
@@ -147,7 +159,7 @@ function log(text, cls = '', speak = false) {
 }
 
 // ---------- bottom bars (crew chips, power, systems) ----------
-function buildUI() {
+function buildUI() {  
   $('#crewbar').innerHTML = '';
   S.crew.forEach(c => {
     const b = document.createElement('button');
@@ -228,7 +240,7 @@ function setPhase(p, dur, banner) { S.phase = p; S.t = S.dur = dur; if (banner) 
 
 function startRound() {
   S.stats = { breaks: 0 };
-  setPhase('calm', 25, 'ALL CLEAR');
+  setPhase('calm', ev.calm ?? 25, 'ALL CLEAR'); //counter for the calm counter phase is either ev.calm, if no value is provided then its 25 second
   $('#modal').classList.remove('show', 'fixing');
   log('All clear. Collect science outside and keep supplies topped up.', 'good', true);
 }
@@ -357,7 +369,7 @@ function debrief() {
     <ul>${S.crew.map(crewLine).join('')}</ul>
     <p>Systems knocked out: <b>${S.stats.breaks}</b> · Highest crew dose so far: <b>${Math.round(worst * 10)} mSv</b> (NASA career limit: 600 mSv)</p>
     <h3>${ev.mins != null ? 'THIS REALLY HAPPENED' : 'REAL FLARE, PRACTICE STORM'} — ${ev.date}</h3>
-    <div class="real"><b>${ev.title}.</b> ${ev.fact}</div>
+    <div class="real"><b>${ev.title}.</b> ${ev.fact || 'No additional event details are available.'}</div>
     <table class="data">
       <tr><td>Flare class</td><td><b>${ev.cls}</b> (peak ${ev.peak.slice(11, 16)} UTC)</td></tr>
       ${ev.region ? `<tr><td>Sunspot region</td><td>${ev.region}${ev.loc ? ` at ${ev.loc}` : ''}</td></tr>` : ''}
@@ -396,6 +408,58 @@ function showCard(html, onGo) {
   render();
 }
 
+function launchMission() {
+  for (const k in CARGO) {
+    S.tanks[k] = Math.min(100, 30 + S.loadout[k] * CARGO[k].bonus);
+  }
+  startRound();
+}
+
+function showPrep() {
+  const redraw = () => {
+    const spent = Object.entries(CARGO).reduce((sum, [k, item]) => sum + S.loadout[k] * item.cost, 0);
+    const remaining = CARGO_BUDGET - spent;
+
+    showCard(`
+      <h2>PREPARE FOR LAUNCH</h2>
+      <p>Choose supplies for the trip. Cargo points remaining: <b>${remaining}</b> / ${CARGO_BUDGET}</p>
+      <ul class="how">
+        ${Object.entries(CARGO).map(([k, item]) => `
+          <li>
+            <b>${item.label}</b> · ${S.loadout[k]} packs
+            <div class="prep-ctrl">
+              <button type="button" data-cargo="${k}" data-d="-1" ${S.loadout[k] === 0 ? 'disabled' : ''}>−</button>
+              <button type="button" data-cargo="${k}" data-d="1" ${remaining < item.cost ? 'disabled' : ''}>+</button>
+            </div>
+          </li>
+        `).join('')}
+      </ul>
+      <button class="go" id="go">Launch mission ▶</button>
+    `, launchMission);
+
+    $('#card').querySelectorAll('[data-cargo]').forEach(button => {
+      button.onclick = () => {
+        const k = button.dataset.cargo;
+        const change = Number(button.dataset.d);
+        const next = S.loadout[k] + change;
+        if (next < 0) return;
+
+        const newSpent = Object.entries(CARGO).reduce((sum, [key, item]) => {
+          const value = key === k ? next : S.loadout[key];
+          return sum + value * item.cost;
+        }, 0);
+
+        if (newSpent > CARGO_BUDGET) return;
+
+        S.loadout[k] = next;
+        redraw();
+      };
+    });
+  };
+
+  redraw();
+}
+
 let loaded;
 function intro() {
   showCard(`
@@ -409,7 +473,7 @@ function intro() {
       <li>⚡ Use <b>+ / −</b> to share power between oxygen, water, food and the shield.</li>
     </ul>
     <p class="src" id="src">Contacting NASA for solar storm data…</p>
-    <button class="go" id="go" disabled>Begin mission ▶</button>`, startRound);
+    <button class="go" id="go" disabled>Begin mission ▶</button>`, showPrep);
   loaded = loaded || loadEvents();
   loaded.then(() => {
     const n = EVENTS.filter(e => e.fromNasa).length;
