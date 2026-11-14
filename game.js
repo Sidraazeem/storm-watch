@@ -10,15 +10,34 @@ const DT = 0.25;
 const DONKI = 'https://ccmc.gsfc.nasa.gov/DONKI-API/get/';
 const SAVED_LIVE = { cls: 'M3.5', peak: '2026-11-05T18:33Z', region: null, loc: null };
 const CAMPAIGN = [
-  { key: 'live', title: 'Latest Big Flare', calm: 10 , warn: 20, storm: 30 },
+  { key: 'live', title: 'Latest Big Flare', calm: 10 , warn: 10, storm: 10 },
   { key: '2024', flrID: '2024-05-11T01:10:00-FLR-001', from: '2024-05-11', to: '2024-05-11',
-    title: 'The Gannon Storm', sev: 1.6, warn: 15, storm: 30,
+    title: 'The Gannon Storm', sev: 1.6, calm: 10 ,warn: 15, storm: 30,
     fact: 'This flare was part of a chain of eruptions in May 2024 that caused the strongest geomagnetic storm at Earth in over 20 years. People saw auroras much farther south than usual.',
     saved: { cls: 'X5.8', peak: '2024-05-11T01:23Z', region: 13664, loc: 'S17W47', sepTime: '2024-05-11T02:10Z', sepInst: 'GOES-P: SEISS >100 MeV' } },
-  { key: '2017', flrID: '2017-09-10T15:35:00-FLR-001', from: '2017-09-10', to: '2017-09-10',
-    title: 'The X8.2 Flare', sev: 2.4, warn: 10, storm: 40,
+  { key: '2017', 
+    flrID: '2017-09-10T15:35:00-FLR-001', 
+    from: '2017-09-10', to: '2017-09-10',
+    title: 'The X8.2 Flare', 
+    sev: 2.4, 
+    calm: 1,
+    warn: 1, 
+    storm: 10,
     fact: 'One of the biggest flares of its solar cycle. On Mars, NASA\'s Curiosity rover measured surface radiation roughly doubling with its RAD instrument, the same kind of data future crews will rely on.',
-    saved: { cls: 'X8.2', peak: '2017-09-10T16:06Z', region: 12673, loc: 'S08W88', sepTime: '2017-09-10T16:25Z', sepInst: 'GOES13: SEM/EPS >100 MeV' } },
+    saved: { cls: 'X8.2', peak: '2017-09-10T16:06Z', region: 12673, loc: 'S08W88', sepTime: '2017-09-10T16:25Z', sepInst: 'GOES13: SEM/EPS >100 MeV' } 
+  },
+  { key: '2023', 
+    flrID: '2023-05-11T08:47:00-FLR-001',
+    from: '2023-05-11', to: '2023-05-11',
+    title: 'The X3.3 Flare',
+    sev: 0.7,
+    calm: 30,
+    warn: 10,
+    storm: 20,
+    fact: 'This flare is immediately preceded by a C-class flare, with approximate peak intensity C7.9 and peak time 2023-05-11T18:23Z from AR 3297 (N10W40).',
+    saved: {cls: 'X3.3', peak: '2023-05-11T08:47:00-FLR-001', region: '13294', loc: 'S06W46', sepTime: '2023-05-11T09:01Z', sepInst: 'GOES-P: EXIS 1.0-8.0'}
+
+  },  
   
 ];
 
