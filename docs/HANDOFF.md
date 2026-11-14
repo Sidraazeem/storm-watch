@@ -112,3 +112,29 @@ Submissions close Sunday, Nov 15 at 11:59 PM local time (per the Space Apps sche
 - [ ] Credit NASA DONKI on the project page and in the game
 - [ ] Plan the 2-minute demo: start on the live-data screen, drag crew to the shelter as the storm hits, fix one machine, show the debrief card
 - [ ] Have the offline fallback ready in case venue Wi-Fi drops during judging
+
+## Judging build (Nov 14, evening)
+
+Both pull requests are merged, plus a full pass on gameplay, graphics, sound and learning. See the README for the challenge-fit table and data sources.
+
+**From the pull requests**
+
+- Sidra's PR is merged as is: BVAD life support in real kilograms, the team crew with portraits and Commander customization, crew introductions, garden health and Greenhouse Guard.
+- Quan's PR is merged with fixes. The launch-prep screen is now "Pack your rocket" (it used `CARGO[k].bonus`, which did not exist, so tanks became NaN). The per-storm calm timer is kept. The fourth storm was labelled X3.3 on 2023-05-11, but NASA DONKI lists that flare as M2.1 with no radiation storm; it is replaced with the real M4.2 flare of 2023-05-09, which did send particles to GOES. The X3.3 flare Quan may have meant (2024-02-09) is in Endless mode.
+
+**New in this build**
+
+- Flow: title → crew intro → pack the rocket → launch cutscene → 4 storms → Mars aurora finale → rating and badges → optional Endless mode with six more real storms.
+- Three levels: Cadet (ages 7-9, hints and an "Everyone to the shelter" button), Pilot (10-12), Commander (older players).
+- All three mini-games open inside the main game with an animated transition: Cosmic Match fixes oxygen, Greenhouse Guard protects plants, Solar Reboot restores the panels.
+- Learning: 19 collectible fact cards with sources, a quiz question in every debrief, tap-to-explain word chips, a "what your choices cost" report, Call Mission Control with the real 2.6 s signal delay, a "Real NASA data" panel, and a Cadet Logbook saved on the device.
+- Sound: synthesized effects, ambience, a Geiger counter, and radio voices with Apollo-style Quindar tones. Voices use the device's own speech voices, so quality varies by device.
+- Code is split: `game.js` (rules), `scene.js` (drawing), `sfx.js` (sound), `learn.js` (learning content), `crew.js` (Sidra's crew code, moved unchanged).
+
+**Still to do**
+
+- [ ] Play full games at normal speed with real kids in the age range and adjust `LEVELS` in `game.js`
+- [ ] Check on a phone and a tablet
+- [ ] Fact-check pass by a second person on `learn.js` (every card names its source)
+- [ ] Add team photos to `crew/` if wanted
+- [ ] Record the demo video

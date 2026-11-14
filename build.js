@@ -27,9 +27,11 @@ ${body}
 </html>
 `;
 fs.writeFileSync(path.join(out, 'index.html'), page);
-for (const f of ['style.css', 'game.js']) fs.copyFileSync(path.join(src, f), path.join(out, f));
+for (const f of ['style.css', 'wow.css', 'sfx.js', 'learn.js', 'crew.js', 'scene.js', 'game.js']) fs.copyFileSync(path.join(src, f), path.join(out, f));
 // Greenhouse Guard mini-game (opened from the main game during severe storms) and its NASA media
 for (const f of ['greenhouse-guard.html', 'greenhouse-guard.css', 'greenhouse-action.js']) fs.copyFileSync(path.join(src, f), path.join(out, f));
+// Cosmic Match (oxygen reboot) and Solar Reboot (solar panels) also open inside the main game
+for (const f of ['cosmic-match.html', 'cosmic-match.css', 'cosmic-match.js', 'solar-panels.html', 'shield-repair.css', 'shield-repair.js', 'shield-showcase.css', 'shield-showcase.js']) fs.copyFileSync(path.join(src, f), path.join(out, f));
 fs.cpSync(path.join(src, 'assets'), path.join(out, 'assets'), { recursive: true });
 // crew photos (optional): copy only the image files
 const crew = path.join(src, 'crew');

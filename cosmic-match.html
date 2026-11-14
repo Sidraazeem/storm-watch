@@ -37,9 +37,11 @@
       speechSynthesis.cancel();
       const speech=new SpeechSynthesisUtterance(text);speech.rate=.95;speechSynthesis.speak(speech);
     }
+    const EMBED=new URLSearchParams(location.search).has('embed');
+    const tell=ok=>{try{parent.postMessage({source:'cosmic-match',ok},location.origin);}catch{}};
     function play(){
-      CosmicMatch.start({host:document.querySelector('#match'),demo:true,sound:tone,speak:readFact,
-        onExit:play,onComplete:play});
+      CosmicMatch.start({host:document.querySelector('#match'),demo:!EMBED,sound:tone,speak:readFact,
+        onExit:EMBED?()=>tell(false):play,onComplete:EMBED?()=>tell(true):play});
       document.querySelector('.cm-tools a')?.remove();
       const sound=document.createElement('button');sound.className='cm-sound';
       const update=()=>{sound.textContent=quiet?'Sound off 🔇':'Sound on 🔊';sound.setAttribute('aria-pressed',String(!quiet));};

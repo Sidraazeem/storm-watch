@@ -1,39 +1,65 @@
-// STORM WATCH — cutaway lunar base crisis game.
+// STORM WATCH: game rules and flow. Drawing is in scene.js, sound in sfx.js, learning content in
+// learn.js, the crew (portraits, customization, introductions) in crew.js.
 const $ = s => document.querySelector(s);
 const SPEED = +new URLSearchParams(location.search).get('speed') || 1; // ?speed=5 for quick testing
 const DT = 0.25;
 
+// ---------- difficulty: tuned for ages 7-12, with a harder level for older players ----------
+// These multipliers are game settings (not NASA values).
+const LEVELS = {
+  cadet:     { name: 'Cadet',     who: 'ages 7 to 9',         dose: 0.5,  brk: 0.5, use: 0.85,  calm: 1.2, warn: 1.5, hints: true },
+  pilot:     { name: 'Pilot',     who: 'ages 10 to 12',       dose: 0.75, brk: 0.8, use: 1.0,  calm: 1.0, warn: 1.2, hints: false },
+  commander: { name: 'Commander', who: 'teens and grown-ups', dose: 1.1,  brk: 1.1, use: 1.15, calm: 0.9, warn: 1.0, hints: false },
+};
+let LEVEL = 'cadet';
+try { LEVEL = LEVELS[localStorage.getItem('stormwatch.level')] ? localStorage.getItem('stormwatch.level') : 'cadet'; } catch (e) {}
+const LV = () => LEVELS[LEVEL];
+
 // ---------- NASA DONKI space-weather data ----------
-// Storm 1 is the strongest flare of the last 30 days (fetched live).
-// Storms 2 and 3 are fixed famous events, also fetched from DONKI by ID.
-// Each has a saved copy so the game still works with no internet.
+// Storm 1 is the strongest flare of the last 30 days (fetched live). The others are real storms
+// fetched from DONKI by ID. Each has a saved copy so the game still works with no internet.
+// calm / warn / storm are seconds of play; sev is the in-game strength (a game setting).
 const DONKI = 'https://ccmc.gsfc.nasa.gov/DONKI-API/get/';
 const SAVED_LIVE = { cls: 'M3.5', peak: '2026-11-05T18:33Z', region: null, loc: null };
 const CAMPAIGN = [
-  { key: 'live', title: 'Latest Big Flare', warn: 20, storm: 30 },
+  { key: 'live', title: 'Latest Big Flare', calm: 30, warn: 22, storm: 24 },
+  { key: '2023', flrID: '2023-05-09T18:20:00-FLR-001', from: '2023-05-09', to: '2023-05-09',
+    title: 'The Sneaky Medium Flare', sev: 1.2, calm: 26, warn: 20, storm: 28,
+    fact: 'This was only a medium (M class) flare, but it still sent a radiation storm toward Earth and the Moon. Size is not everything: where a flare points matters too.',
+    saved: { cls: 'M4.2', peak: '2023-05-09T18:58Z', region: 13296, loc: 'N17W32', sepTime: '2023-05-09T23:15Z', sepInst: 'GOES-P: SEISS >10 MeV' } },
   { key: '2024', flrID: '2024-05-11T01:10:00-FLR-001', from: '2024-05-11', to: '2024-05-11',
-    title: 'The Gannon Storm', sev: 1.6, warn: 15, storm: 30,
+    title: 'The Gannon Storm', sev: 1.6, calm: 26, warn: 16, storm: 30, cme: 'Over 1,200 km every second (NASA DONKI)',
     fact: 'This flare was part of a chain of eruptions in May 2024 that caused the strongest geomagnetic storm at Earth in over 20 years. People saw auroras much farther south than usual.',
     saved: { cls: 'X5.8', peak: '2024-05-11T01:23Z', region: 13664, loc: 'S17W47', sepTime: '2024-05-11T02:10Z', sepInst: 'GOES-P: SEISS >100 MeV' } },
   { key: '2017', flrID: '2017-09-10T15:35:00-FLR-001', from: '2017-09-10', to: '2017-09-10',
-    title: 'The X8.2 Flare', sev: 2.4, warn: 10, storm: 40,
-    fact: 'One of the biggest flares of its solar cycle. On Mars, NASA\'s Curiosity rover measured surface radiation roughly doubling with its RAD instrument, the same kind of data future crews will rely on.',
+    title: 'The X8.2 Monster', sev: 2.2, calm: 24, warn: 13, storm: 36, cme: 'Over 2,300 km every second (NASA DONKI)',
+    fact: 'One of the biggest flares of its solar cycle. It reached all the way to Mars, where NASA\'s Curiosity rover measured surface radiation double the normal level and the MAVEN spacecraft saw the whole planet glow.',
     saved: { cls: 'X8.2', peak: '2017-09-10T16:06Z', region: 12673, loc: 'S08W88', sepTime: '2017-09-10T16:25Z', sepInst: 'GOES13: SEM/EPS >100 MeV' } },
+];
+// More real storms for Endless mode (saved from NASA DONKI: strongest X flare of each year that sent particles to GOES).
+const EXTRA = [
+  { cls: 'X5.4', peak: '2012-03-07T00:24Z', region: 11429, loc: 'N18E31', sepTime: '2012-03-07T04:05Z', sepInst: 'GOES13: SEM/EPS >100 MeV', link: 'https://ccmc.gsfc.nasa.gov/DONKI/view/FLR/197/-1' },
+  { cls: 'X3.3', peak: '2024-02-09T13:14Z', region: 13575, loc: 'S37W110', sepTime: '2024-02-09T15:30Z', sepInst: 'GOES-P: SEISS >10 MeV', link: 'https://ccmc.gsfc.nasa.gov/DONKI/view/FLR/29062/-1' },
+  { cls: 'X1.8', peak: '2024-10-09T01:56Z', region: 13848, loc: 'N13W08', sepTime: '2024-10-09T03:50Z', sepInst: 'GOES-P: SEISS >100 MeV', link: 'https://ccmc.gsfc.nasa.gov/DONKI/view/FLR/33863/-1' },
+  { cls: 'X1.0', peak: '2021-10-28T15:35Z', region: 12887, loc: 'S26W04', sepTime: '2021-10-28T16:35Z', sepInst: 'GOES-P: SEISS >100 MeV', link: 'https://ccmc.gsfc.nasa.gov/DONKI/view/FLR/18096/-1' },
+  { cls: 'X1.6', peak: '2014-09-10T17:45Z', region: 12158, loc: 'N15E05', sepTime: '2014-09-11T02:40Z', sepInst: 'GOES13: SEM/EPS >10 MeV', link: 'https://ccmc.gsfc.nasa.gov/DONKI/view/FLR/6606/-1' },
+  { cls: 'X1.2', peak: '2014-01-07T18:32Z', region: 11943, loc: 'S15W10', sepTime: '2014-01-07T19:45Z', sepInst: 'GOES13: SEM/EPS >10 MeV', link: 'https://ccmc.gsfc.nasa.gov/DONKI/view/FLR/4351/-1' },
 ];
 
 // Flare classes go A, B, C, M, X; each letter is 10x stronger. Returns strength in "M units".
 const mUnits = c => ({ A: 1e-3, B: 1e-2, C: 0.1, M: 1, X: 10 }[c[0]] || 0) * (parseFloat(c.slice(1)) || 1);
 const iso = d => d.toISOString().slice(0, 10);
+const fmtMins = m => m >= 120 ? `${Math.floor(m / 60)} hours ${m % 60 ? m % 60 + ' minutes' : ''}`.trim() : `${m} minutes`;
 
 function makeEvent(c, d, fromNasa) {
   const mins = d.sepTime ? Math.round((new Date(d.sepTime) - new Date(d.peak)) / 6e4) : null;
   const date = new Date(d.peak).toLocaleDateString('en-US', { timeZone: 'UTC', month: 'long', day: 'numeric', year: 'numeric' });
   const ev = { ...c, ...d, mins, date, fromNasa };
   if (c.key === 'live') {
-    ev.sev = Math.max(0.6, Math.min(1.3, 0.6 + 0.4 * Math.log10(Math.max(1, mUnits(d.cls)))));
+    ev.sev = Math.max(0.7, Math.min(1.1, 0.6 + 0.4 * Math.log10(Math.max(1, mUnits(d.cls)))));
     ev.fact = 'This is the strongest solar flare NASA recorded in the last 30 days. ' + (mins != null
-      ? `Radiation particles from it were detected ${mins} minutes later.`
-      : 'It did not send a radiation storm toward the Moon. Most flares don\'t, but a crew has to be ready every time, so this drill treats it as the real thing.');
+      ? `Radiation particles from it were detected ${fmtMins(mins)} later.`
+      : 'It did not send a radiation storm toward the Moon. Most flares don\'t, but a crew has to be ready every time, so this one is a practice drill.');
   }
   return ev;
 }
@@ -50,13 +76,14 @@ async function getJSON(path) {
   } finally { clearTimeout(to); }
 }
 
-// Flare record + list of particle events (SEP) -> the fields the game uses
+// Flare record + list of particle events (SEP) -> the fields the game uses.
+// Prefers detectors near Earth and the Moon (GOES), strongest energy channel first.
 function pick(flr, seps) {
+  const inst = s => (s.instruments && s.instruments[0] && s.instruments[0].displayName) || '';
   const linked = (seps || [])
     .filter(s => (s.linkedEvents || []).some(l => l.activityID === flr.flrID) && s.eventTime > flr.peakTime)
     .sort((a, b) => a.eventTime < b.eventTime ? -1 : 1);
-  const inst = s => (s.instruments && s.instruments[0] && s.instruments[0].displayName) || '';
-  const sep = linked.find(s => />100 MeV/.test(inst(s))) || linked[0];
+  const sep = linked.find(s => /GOES.*>100 MeV/.test(inst(s))) || linked.find(s => /GOES/.test(inst(s))) || linked[0];
   return { cls: flr.classType, peak: flr.peakTime, region: flr.activeRegionNum, loc: flr.sourceLocation, link: flr.link,
     sepTime: sep && sep.eventTime, sepInst: sep && inst(sep) };
 }
@@ -76,12 +103,11 @@ async function loadEvents() {
   }));
 }
 
-// ---------- world layout (canvas units: 1200 x 640) ----------
-const W = 1200, H = 640, SURF = 250, SHAFT = 600;
+// ---------- world layout (canvas units; W, H, SURF and SHAFT are in scene.js) ----------
 const ZONES = {
-  eva:     { name: 'MOON SURFACE',  tag: 'no protection',  rad: 1.0, x: 30,  y: 110, w: 520, h: 140, floor: 250, slot: i => 130 + i * 85 },
-  green:   { name: 'GREENHOUSE',    tag: 'thin walls',     rad: 0.5, x: 230, y: 290, w: 350, h: 140, floor: 422, slot: i => 280 + i * 75 },
-  work:    { name: 'WORKSHOP',      tag: 'thin walls',     rad: 0.5, x: 620, y: 290, w: 350, h: 140, floor: 422, slot: i => 665 + i * 75 },
+  eva:     { name: 'MOON SURFACE',  tag: 'no protection',   rad: 1.0, x: 30,  y: 110, w: 520, h: 140, floor: 250, slot: i => 130 + i * 85 },
+  green:   { name: 'GREENHOUSE',    tag: 'thin walls',      rad: 0.5, x: 230, y: 290, w: 350, h: 140, floor: 422, slot: i => 280 + i * 75 },
+  work:    { name: 'WORKSHOP',      tag: 'thin walls',      rad: 0.5, x: 620, y: 290, w: 350, h: 140, floor: 422, slot: i => 665 + i * 75 },
   shelter: { name: 'STORM SHELTER', tag: 'deep + shielded', rad: 0.1, x: 425, y: 470, w: 350, h: 130, floor: 592, slot: i => 480 + i * 80 },
 };
 const SYSTEMS = {
@@ -115,8 +141,11 @@ const MAKE = { o2: 0.075, h2o: 0.32, farm: 0.09, farmer: 0.075 };
 // Time scale: 1 game second = 1 hour on the base. During the warning countdown the clock slows
 // down so that the countdown covers the real warning time from NASA's records.
 const warnMins = ev => ev.mins != null ? ev.mins : 30;
-const hoursPerSec = ev => S.phase === 'warning' ? warnMins(ev) / 60 / ev.warn : 1;
+const hoursPerSec = ev => S.phase === 'warning' ? warnMins(ev) / 60 / S.dur : 1;
 const pct = k => S.tanks[k] / TANK[k] * 100;
+// Background radiation on the Moon's surface: 1,369 microsieverts per day (Chang'e-4 LND, Zhang et al. 2020).
+// In game dose units (1 unit = 10 mSv) per hour, before room shielding.
+const BACKGROUND = 1.369 / 24 / 10;
 // Greenhouse: only severe storms (X-class flares with a real radiation storm) damage the plants.
 const severe = ev => ev.sev >= 1.5;
 const GARDEN_DMG = 0.3;   // % garden health lost per second per unit of storm intensity, unprotected
@@ -127,141 +156,38 @@ function clock(h) {
   return `Day ${Math.floor(m / 1440) + 1} · ${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 }
 
-// ---------- the crew ----------
-// Three real team members plus the player's own customizable Commander.
-// Each role has a sash colour and an emblem: leaf (Botanist), ball bearing (Engineer), rock (Geologist), star (Commander).
-// `look` drives the portrait: skin, hair style (or hijab), hair/hijab colour, beard, accessories.
-const SKIN = ['#f6dcc6', '#ecc4a2', '#d7a479', '#b47a50', '#8a5634', '#5c3820'];
-const HAIR = ['#15161a', '#3b2618', '#6b4428', '#d9b46a', '#a8482a', '#a39a90', '#1f3a6b', '#6e2235'];
-const STYLES = { short: 'Short', swept: 'Swept', buzz: 'Buzz', long: 'Long', curly: 'Curly', bun: 'Bun', hijab: 'Hijab' };
-const ACCS = { none: 'None', glasses: 'Glasses', earrings: 'Earrings', necklace: 'Necklace' };
-const CMD_COLORS = ['#37d6ff', '#a77bff', '#ff7ac8', '#ffd84a', '#7fb2ff'];   // no green / slate / copper (teammates) or red (danger)
-const TEAM = [
-  { id: 'cmd', name: 'Commander', role: 'Commander', job: 'pilot', perk: 'runs 2x faster', emblem: 'star', zone: 'work' },
-  { id: 'brian', name: 'Brian', role: 'Engineer', job: 'engineer', perk: 'easier repairs', emblem: 'bearing', zone: 'work', photo: 'crew/brian.jpg',
-    color: '#a9b8ca', sash: '#4f5d70', edge: '#c9d4e0',
-    look: { skin: '#f0cdb2', hair: 'short', hairColor: '#9a9187', beard: '#a8a096', smile: 2, acc: [] } },
-  { id: 'sidra', name: 'Sidra', role: 'Botanist', job: 'botanist', perk: 'grows 2x food', emblem: 'leaf', zone: 'green', photo: 'crew/sidra.jpg',
-    color: '#4be38a', look: { skin: '#c08a5f', hair: 'hijab', hairColor: '#5e2d55', frame: '#3b2a2e', smile: 1, acc: ['glasses', 'pin'] } },
-  { id: 'quan', name: 'Quan', role: 'Geologist', job: 'geologist', perk: '2x science outside', emblem: 'rock', zone: 'eva', photo: 'crew/quan.jpg',
-    color: '#e08a4f', look: { skin: '#e9c29b', hair: 'swept', hairColor: '#15161a', smile: 1, acc: ['glasses'] } },
-];
-const CMD_DEFAULT = { name: 'Commander', color: CMD_COLORS[0], look: { skin: SKIN[2], hair: 'short', hairColor: HAIR[1], smile: 1, acc: [] } };
-let CMD = loadCommander();
-function loadCommander() {
-  try {
-    const v = JSON.parse(localStorage.getItem('stormwatch.commander'));
-    if (v && v.look && STYLES[v.look.hair]) return { ...CMD_DEFAULT, ...v, look: { ...CMD_DEFAULT.look, ...v.look } };
-  } catch (e) {}
-  return JSON.parse(JSON.stringify(CMD_DEFAULT));
-}
-function saveCommander() { try { localStorage.setItem('stormwatch.commander', JSON.stringify(CMD)); } catch (e) {} }
-const esc = s => String(s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
-
-// ---------- crew photos (optional) ----------
-// Put a photo at crew/brian.jpg, crew/sidra.jpg or crew/quan.jpg and the game turns it into
-// pixel art when it loads. Until a photo is there, the drawn portrait below is used instead.
-const PHOTO_PX = 40;   // pixel-art resolution: lower = chunkier pixels
-const PHOTOS = {};     // crew id -> pixelated photo (data URL)
-const HEADS = {};      // crew id -> image used for the helmet-off head in the scene
-function loadPhoto(id, src) {
-  const img = new Image();
-  img.onload = () => {
-    const n = PHOTO_PX, cv = document.createElement('canvas'); cv.width = cv.height = n;
-    const x = cv.getContext('2d'), s = Math.min(img.width, img.height);
-    x.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, n, n);   // centre square crop
-    const d = x.getImageData(0, 0, n, n);                                            // fewer colours = retro look
-    for (let i = 0; i < d.data.length; i += 4) for (let k = 0; k < 3; k++) d.data[i + k] = Math.round(d.data[i + k] / 255 * 7) / 7 * 255;
-    x.putImageData(d, 0, 0);
-    PHOTOS[id] = cv.toDataURL();
-    const h = new Image(); h.src = PHOTOS[id]; HEADS[id] = { img: h, photo: true };
-    if (S) { buildUI(); render(); }
-  };
-  img.src = src;   // a missing file just keeps the drawn portrait
-}
-TEAM.forEach(t => t.photo && loadPhoto(t.id, t.photo));
-// Image of a crew member's head for drawing on the canvas (photo if there is one, else the drawn portrait).
-function headFor(c) {
-  if (HEADS[c.id] && HEADS[c.id].photo) return HEADS[c.id];
-  const key = JSON.stringify([c.look, c.color]);
-  if (!HEADS[c.id] || HEADS[c.id].key !== key) {
-    const img = new Image(); img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(portrait(c, 128));
-    HEADS[c.id] = { img, key };
-  }
-  return HEADS[c.id];
-}
-
-// Head-and-shoulders portrait as an inline SVG (64 x 64 units), or the pixelated photo if there is one.
-function portrait(c, size = 40) {
-  if (PHOTOS[c.id]) return `<span class="portrait photo" style="width:${size}px;height:${size}px;border-color:${c.color}"><img src="${PHOTOS[c.id]}" alt="${esc(c.name)}"></span>`;
-  const p = c.look, hc = p.hairColor, sk = p.skin, acc = p.acc || [], hijab = p.hair === 'hijab';
-  const sash = c.sash || c.color, id = 'p' + Math.random().toString(36).slice(2, 8);
-  const hair = {
-    short: [``, `<path d="M20 29 Q18 13 32 13 Q46 13 44 29 Q42 19 32 19 Q23 19 20 29Z" fill="${hc}"/>`],
-    swept: [``, `<path d="M20 28 Q17 12 34 12 Q48 13 44 27 Q41 18 27 21 Q22 22 20 28Z" fill="${hc}"/><path d="M27 21 Q35 15 44 22 Q38 17 27 21Z" fill="#fff" opacity=".12"/>`],
-    buzz: [``, `<path d="M21 26 Q22 15 32 15 Q42 15 43 26 Q32 19 21 26Z" fill="${hc}" opacity=".85"/>`],
-    long: [`<path d="M17 30 Q16 13 32 13 Q48 13 47 30 L49 53 L15 53Z" fill="${hc}"/>`, `<path d="M20 28 Q21 15 32 15 Q43 15 44 28 Q37 20 29 21 Q24 22 20 28Z" fill="${hc}"/>`],
-    curly: [`<g fill="${hc}"><circle cx="20" cy="27" r="6"/><circle cx="44" cy="27" r="6"/><circle cx="19" cy="36" r="5"/><circle cx="45" cy="36" r="5"/></g>`,
-      `<g fill="${hc}"><circle cx="23" cy="19" r="6"/><circle cx="32" cy="15" r="7"/><circle cx="41" cy="19" r="6"/><circle cx="20" cy="25" r="4.5"/><circle cx="44" cy="25" r="4.5"/></g>`],
-    bun: [`<circle cx="32" cy="10" r="5.5" fill="${hc}"/>`, `<path d="M20 29 Q18 14 32 14 Q46 14 44 29 Q42 19 32 19 Q23 19 20 29Z" fill="${hc}"/>`],
-    hijab: [`<path d="M13 56 Q11 31 18 21 Q24 11 32 11 Q40 11 46 21 Q53 31 51 56Z" fill="${hc}"/>`,
-      `<ellipse cx="32" cy="31" rx="11.5" ry="13.5" fill="none" stroke="${hc}" stroke-width="3"/><ellipse cx="32" cy="31" rx="12.5" ry="14.5" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width="1"/>`],
-  }[p.hair] || ['', ''];
-  const emblem = {
-    leaf: `<path d="M-2.6 2.4 Q-3 -2.6 2.8 -2.8 Q2.8 2.6 -2.6 2.4Z M-2.6 2.4 L1.5 -1.5" fill="#4be38a" stroke="#0b3a20" stroke-width=".6"/>`,
-    bearing: `<g><circle r="3.4" fill="none" stroke="#c9d4e0" stroke-width="1"/><circle r="1.25" fill="none" stroke="#c9d4e0" stroke-width=".8"/>${[0, 60, 120, 180, 240, 300].map(a => `<circle r=".62" cx="${(2.3 * Math.cos(a * Math.PI / 180)).toFixed(2)}" cy="${(2.3 * Math.sin(a * Math.PI / 180)).toFixed(2)}" fill="#eef3f8"/>`).join('')}</g>`,
-    rock: `<path d="M-3 2 L-2.4 -1 L-0.4 -2.6 L2.2 -1.6 L3 1.6 Z" fill="#9b8f84" stroke="#3a3029" stroke-width=".5"/><line x1="-0.5" y1="-0.5" x2="2.8" y2="-3.4" stroke="#e08a4f" stroke-width=".9"/>`,
-    star: `<path d="M0 -3.2 L0.9 -1 L3.1 -1 L1.4 0.4 L2 2.7 L0 1.3 L-2 2.7 L-1.4 0.4 L-3.1 -1 L-0.9 -1Z" fill="${c.color}"/>`,
-  }[c.emblem];
-  const face = hijab ? { rx: 10.5, ry: 12.5 } : { rx: 12, ry: 14 };
-  const smile = p.smile === 2 ? 'M27 37 Q32 42 37 37' : 'M28.5 37.5 Q32 40 35.5 37.5';
-  return `<svg xmlns="http://www.w3.org/2000/svg" class="portrait" width="${size}" height="${size}" viewBox="0 0 64 64" aria-label="${esc(c.name)}">
-    <defs><clipPath id="${id}"><circle cx="32" cy="32" r="31"/></clipPath><clipPath id="${id}b"><path d="M6 64 Q8 52 20 50 L44 50 Q56 52 58 64Z"/></clipPath></defs>
-    <circle cx="32" cy="32" r="31" fill="#0a1424"/>
-    <g clip-path="url(#${id})">
-      ${hair[0]}
-      <path d="M6 64 Q8 52 20 50 L44 50 Q56 52 58 64Z" fill="#eef3f8"/>
-      <g clip-path="url(#${id}b)">
-        ${c.edge ? `<line x1="10" y1="50" x2="46" y2="68" stroke="${c.edge}" stroke-width="8.5"/>` : ''}
-        <line x1="10" y1="50" x2="46" y2="68" stroke="${sash}" stroke-width="6.5"/>
-      </g>
-      <circle cx="21" cy="58" r="4.6" fill="#0d1726" stroke="#8fa3bd" stroke-width=".7"/>
-      <g transform="translate(21 58)">${emblem}</g>
-      ${hijab ? '' : `<rect x="27.5" y="40" width="9" height="11" rx="3" fill="${sk}"/>`}
-      ${hijab ? `<path d="M13 56 Q11 31 18 21 Q24 11 32 11 Q40 11 46 21 Q53 31 51 56 Q42 50 32 50 Q22 50 13 56Z" fill="${hc}"/>` : ''}
-      <ellipse cx="32" cy="31" rx="${face.rx}" ry="${face.ry}" fill="${sk}"/>
-      ${hijab ? '' : `<ellipse cx="20.3" cy="32" rx="1.8" ry="3" fill="${sk}"/><ellipse cx="43.7" cy="32" rx="1.8" ry="3" fill="${sk}"/>`}
-      ${p.beard ? `<path d="M20.5 31 Q21 46 32 46 Q43 46 43.5 31 Q41 39.5 32 40 Q23 39.5 20.5 31Z" fill="${p.beard}"/><path d="M27.5 35.6 Q32 33.6 36.5 35.6 L36 36.6 Q32 35.4 28 36.6Z" fill="${p.beard}"/>` : ''}
-      <g fill="#1b1f27"><ellipse cx="27.5" cy="30.5" rx="1.4" ry="1.6"/><ellipse cx="36.5" cy="30.5" rx="1.4" ry="1.6"/></g>
-      <g stroke="${hijab ? '#2a1d16' : hc}" stroke-width="1.3" stroke-linecap="round" opacity=".9"><path d="M25 26.6 Q27.5 25.4 30 26.4"/><path d="M34 26.4 Q36.5 25.4 39 26.6"/></g>
-      <path d="${smile}" stroke="#7a3b2e" stroke-width="1.3" fill="none" stroke-linecap="round"/>
-      ${hair[1]}
-      ${acc.includes('glasses') ? `<g fill="#9fd8ff" fill-opacity=".18" stroke="${p.frame || '#1c2733'}" stroke-width="1.3"><rect x="23.3" y="27.4" width="8.4" height="6.4" rx="2"/><rect x="32.3" y="27.4" width="8.4" height="6.4" rx="2"/></g><line x1="31.7" y1="29.8" x2="32.3" y2="29.8" stroke="${p.frame || '#1c2733'}" stroke-width="1.3"/>` : ''}
-      ${acc.includes('earrings') && !hijab ? `<g fill="#ffd36b"><circle cx="20.2" cy="36.6" r="1.5"/><circle cx="43.8" cy="36.6" r="1.5"/></g>` : ''}
-      ${acc.includes('earrings') && hijab ? `<circle cx="22" cy="40" r="1.3" fill="#ffd36b"/>` : ''}
-      ${acc.includes('necklace') ? `<path d="M24 51.5 Q32 58.5 40 51.5" stroke="#ffd36b" stroke-width="1.1" fill="none"/><circle cx="32" cy="56" r="1.7" fill="#ffd36b"/>` : ''}
-      ${acc.includes('pin') ? `<circle cx="42.5" cy="45.5" r="1.6" fill="#ffd36b" stroke="#8a6a1c" stroke-width=".4"/>` : ''}
-    </g>
-    <circle cx="32" cy="32" r="31" fill="none" stroke="${c.color}" stroke-width="2"/>
-  </svg>`;
-}
-
-let S; // game state
+// ---------- packing for launch: the rocket only lifts 10 crates, so every choice costs another ----------
+const CRATES = 10;
+const CARGO = {
+  h2o:   { icon: '💧', name: 'Water crate',      cost: 1, max: 4, tip: '+8 kg of water. Water also makes your oxygen.' },
+  o2:    { icon: '💨', name: 'Oxygen tank',      cost: 1, max: 4, tip: '+2.5 kg of oxygen, ready to breathe.' },
+  food:  { icon: '🥫', name: 'Food crate',       cost: 1, max: 4, tip: '+7 kg of food.' },
+  parts: { icon: '🔧', name: 'Spare parts kit',  cost: 2, max: 1, tip: 'The first breakdown in every storm is fixed instantly.' },
+  vest:  { icon: '🦺', name: 'Radiation vests',  cost: 2, max: 1, tip: 'Crew caught outside the shelter soak up less radiation. Tested on Artemis I.' },
+  sci:   { icon: '🔬', name: 'Science kit',      cost: 2, max: 1, tip: 'Crew outside collect science stars 50% faster.' },
+  batt:  { icon: '🔋', name: 'Backup battery',   cost: 2, max: 1, tip: '+2 kW of power while the solar panels are folded.' },
+};
+const CARGO_ADD = { h2o: 8, o2: 2.5, food: 7 };
+const START_FILL = 0.42;
 
 function newGame() {
   S = {
     round: 0, phase: 'brief', t: 0, dur: 1, I: 0, supply: 14, sel: null, drag: null, ptr: null, science: 0,
-    tanks: { o2: TANK.o2 * 0.7, h2o: TANK.h2o * 0.7, food: TANK.food * 0.7 },
+    tanks: { o2: TANK.o2 * START_FILL, h2o: TANK.h2o * START_FILL, food: TANK.food * START_FILL },
     hours: 0, rate: { o2: 0, h2o: 0, food: 0 }, dry: false, garden: 100, gg: false,
     sys: { o2: { lvl: 2 }, h2o: { lvl: 2 }, farm: { lvl: 2 }, shield: { lvl: 0 } },
     crew: TEAM.map(t => t.id === 'cmd'
       ? { ...t, name: CMD.name, color: CMD.color, look: { ...CMD.look, acc: [...CMD.look.acc] } }
       : { ...t, look: { ...t.look } }),
-    stats: { breaks: 0 }, fx: [], banner: null, shake: 0, meet: null,
+    stats: { breaks: 0 }, fx: [], parts: [], banner: null, shake: 0, meet: null, hint: null, call: null, callAt: 0,
+    paused: false, cut: null, panelsDown: false, foldA: 0, pendingFix: null,
+    cargo: { h2o: 2, o2: 2, food: 2, parts: 1, vest: 1, sci: 0, batt: 0 },
+    asked: [], quizRight: 0, quizTotal: 0, fixes: 0, endless: false, flags: {}, chatAt: 6, stepAt: 0,
     cam: { z: 1, x: W / 2, y: H / 2, to: { z: 1, x: W / 2, y: H / 2 } },
   };
   S.crew.forEach((c, i) => Object.assign(c, { i, x: ZONES[c.zone].slot(i), y: ZONES[c.zone].floor, path: [], dir: 1, dose: 0, health: 100, out: false }));
   for (const k in S.sys) Object.assign(S.sys[k], { broken: false, repair: 0 });
+  EVENTS = EVENTS.slice(0, CAMPAIGN.length);
   buildUI();
   render();
 }
@@ -270,34 +196,19 @@ const at = z => S.crew.filter(c => !c.out && !c.path.length && c.zone === z);
 const lvl = k => S.sys[k].broken ? 0 : S.sys[k].lvl;
 const used = () => Object.values(S.sys).reduce((a, s) => a + s.lvl * KW_PER_LEVEL, 0);
 const playing = () => ['calm', 'warning', 'storm'].includes(S.phase);
+const frozen = () => S.gg || S.paused;                 // a mini-game is open, or the player pressed pause
+const once = k => S.flags[k] ? false : (S.flags[k] = true);
 
-// ---------- sound + voice ----------
-let muted = false, actx;
-function beep(freq = 440, dur = 0.15, type = 'square') {
-  if (muted) return;
-  try {
-    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
-    const o = actx.createOscillator(), g = actx.createGain();
-    o.type = type; o.frequency.value = freq; g.gain.value = 0.05;
-    o.connect(g); g.connect(actx.destination);
-    o.start(); o.stop(actx.currentTime + dur);
-  } catch (e) {}
-}
-function say(text) {
-  if (muted || !window.speechSynthesis) return;
-  try {
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text); u.rate = 1.05; u.pitch = 0.9;
-    speechSynthesis.speak(u);
-  } catch (e) {}
-}
+// Caption at the top of the scene, read out over the "radio".
 let capTimer;
-function log(text, cls = '', speak = false) {
+function log(text, cls = '', who = 'capcom') {
   const el = $('#caption');
   el.textContent = text; el.className = 'show ' + cls;
-  clearTimeout(capTimer); capTimer = setTimeout(() => el.className = cls, 6000);
-  if (speak) say(text);
+  clearTimeout(capTimer); capTimer = setTimeout(() => el.className = cls, 7000);
+  if (who) SFX.say(text, who, cls === 'bad' || cls === 'warn');
 }
+const emote = (c, icon, life = 1.6) => { c.emote = { icon, t: life, life }; };
+const speak = (c, text) => { c.say = { text, t: 3 }; };
 
 // ---------- bottom bars (crew chips, power, systems) ----------
 function buildUI() {
@@ -307,13 +218,13 @@ function buildUI() {
     b.className = 'chip';
     b.innerHTML = `${portrait(c, 40)}<div class="who"><b style="color:${c.color}">${esc(c.name)} <small>${c.name === c.role ? '' : c.role}</small></b><span class="st"></span>
       <div class="bar dose" title="Radiation dose (red line = NASA career limit)"><i></i></div></div>`;
-    b.onclick = () => { S.sel = S.sel === c.id ? null : c.id; render(); };
+    b.onclick = () => { S.sel = S.sel === c.id ? null : c.id; SFX.play('select'); render(); };
     $('#crewbar').appendChild(b); c.el = b;
   });
   $('#systems').innerHTML = Object.entries(SYSTEMS).map(([k, s]) =>
     `<div class="sys" data-s="${k}"><div class="name">${s.icon} ${s.name} <small></small></div>
      <div class="bar"><i></i></div>
-     <div class="ctl"><button data-d="-1">−</button><div class="pips"><i></i><i></i><i></i></div><button data-d="1">+</button></div>
+     <div class="ctl"><button data-d="-1" aria-label="Less power for ${s.name}">−</button><div class="pips"><i></i><i></i><i></i></div><button data-d="1" aria-label="More power for ${s.name}">+</button></div>
      <button class="fix">🔧 FIX IT</button>${k === 'farm' ? '<button class="protect">🌱 PROTECT</button>' : ''}</div>`).join('');
   document.querySelectorAll('.sys .ctl button').forEach(b => b.onclick = () => setLevel(b.closest('.sys').dataset.s, +b.dataset.d));
   document.querySelectorAll('.sys .fix').forEach(b => b.onclick = () => openFix(b.closest('.sys').dataset.s));
@@ -323,20 +234,29 @@ function buildUI() {
 function setLevel(k, d) {
   const s = S.sys[k], n = s.lvl + d;
   if (n < 0 || n > 3) return;
-  if (d > 0 && used() + KW_PER_LEVEL > S.supply) { log('Not enough power. Turn something else down first.', 'warn'); beep(180, 0.1); return; }
-  s.lvl = n; beep(600 + n * 80, 0.05, 'sine'); render();
+  if (d > 0 && used() + KW_PER_LEVEL > S.supply) {
+    log('Not enough power. Turn something else down first.', 'warn', null); SFX.play('deny');
+    if (once('tradeoff')) Learn.overlay(`<h2>⚡ POWER IS LIMITED</h2><p class="big">Your base makes only <b>${S.supply} kW</b>. To give more power to one machine, you must take it from another. Real mission planners make trade-offs like this every day.</p>`);
+    return;
+  }
+  s.lvl = n; SFX.play(d > 0 ? 'power' : 'powerdn'); render();
 }
 
 function render() {
-  document.body.className = S.phase;
-  $('#round').textContent = `Storm ${Math.min(S.round + 1, EVENTS.length)} / ${EVENTS.length}`;
-  $('#phase').textContent = { brief: 'STANDBY', meet: 'CREW BRIEFING', calm: 'ALL CLEAR', warning: 'STORM INCOMING', storm: 'RADIATION STORM', debrief: 'DEBRIEF', end: 'MISSION OVER' }[S.phase];
-  const hps = playing() ? hoursPerSec(EVENTS[S.round]) : 1;
-  $('#timer').textContent = !playing() ? '--' : S.phase === 'warning' ? Math.ceil(S.t * hps * 60) + ' min' : Math.ceil(S.t * hps) + ' h';
+  document.body.className = S.phase + (S.paused ? ' paused' : '') + (LV().hints ? ' cadet' : '');
+  const ev = EVENTS[Math.min(S.round, EVENTS.length - 1)];
+  $('#round').textContent = S.endless ? `Endless · Storm ${S.round + 1}` : `Storm ${Math.min(S.round + 1, EVENTS.length)} / ${EVENTS.length}`;
+  $('#phase').textContent = { brief: 'STANDBY', meet: 'CREW BRIEFING', prep: 'PACKING', cut: 'IN FLIGHT', calm: 'ALL CLEAR', warning: 'STORM INCOMING', storm: 'RADIATION STORM', debrief: 'DEBRIEF', end: 'MISSION OVER' }[S.phase];
+  const hps = playing() ? hoursPerSec(ev) : 1, mins = S.t * hps * 60;
+  $('#timer').textContent = !playing() ? '--' : S.phase === 'warning' ? (mins >= 120 ? (mins / 60).toFixed(1) + ' h' : Math.ceil(mins) + ' min') : Math.ceil(S.t * hps) + ' h';
+  $('#phasebar i').style.width = (playing() ? Math.max(0, S.t / S.dur * 100) : 0) + '%';
   $('#clock').textContent = clock(S.hours);
   $('#pwrUsed').textContent = used(); $('#pwrMax').textContent = S.supply;
   $('#pwrBar').style.width = Math.min(100, used() / S.supply * 100) + '%';
   $('#science').textContent = Math.floor(S.science);
+  $('#pause').textContent = S.paused ? '▶' : '⏸';
+  $('#allShelter').hidden = !(LV().hints && (S.phase === 'warning' || S.phase === 'storm'));
+  $('#call').disabled = !playing() || !!S.call || performance.now() < S.callAt;
   for (const k in S.sys) {
     const s = S.sys[k], def = SYSTEMS[k], el = document.querySelector(`.sys[data-s="${k}"]`);
     const v = def.tank ? pct(def.tank) : lvl('shield') * 20;
@@ -354,13 +274,13 @@ function render() {
   }
   S.crew.forEach(c => {
     c.el.className = 'chip' + (S.sel === c.id ? ' sel' : '') + (c.out ? ' out' : '');
-    c.el.querySelector('.st').textContent = c.out ? 'Evacuated to medical' : `${c.perk} · ${Math.round(c.dose * 10)} mSv`;
+    c.el.querySelector('.st').textContent = c.out ? 'Resting in medical bay' : `${c.perk} · ${Math.round(c.dose * 10)} mSv`;
     c.el.querySelector('.dose i').style.width = Math.min(100, c.dose) + '%';
   });
 }
 
 // ---------- crew movement ----------
-function orderMove(c, zone) {
+function orderMove(c, zone, quiet) {
   if (!c || c.out || !playing() || (c.zone === zone && !c.path.length)) return;
   const z = ZONES[zone], tx = z.slot(c.i);
   c.zone = zone; c.path = [];
@@ -369,11 +289,14 @@ function orderMove(c, zone) {
     c.path.push([SHAFT, z.floor]);
   }
   c.path.push([tx, z.floor]);
-  beep(520, 0.06, 'sine');
+  if (!quiet) SFX.play('drop');
+  if (zone === 'shelter' && S.phase !== 'calm') emote(c, '🏃');
 }
 function stepCrew(dt) {
+  let moving = false;
   S.crew.forEach(c => {
     let d = WALK * (c.job === 'pilot' ? 2 : 1) * dt;
+    if (c.path.length) moving = true;
     while (c.path.length && d > 0) {
       const [tx, ty] = c.path[0], dx = tx - c.x, dy = ty - c.y, len = Math.hypot(dx, dy);
       if (dx) c.dir = Math.sign(dx);
@@ -381,35 +304,90 @@ function stepCrew(dt) {
       else { c.x += dx / len * d; c.y += dy / len * d; d = 0; }
     }
   });
+  if (moving && (S.stepAt -= dt) <= 0) { S.stepAt = 0.26; SFX.play('step'); }
 }
 // radiation factor depends on where the astronaut actually is right now
 const radAt = c => !c.path.length ? ZONES[c.zone].rad : c.y <= SURF + 2 ? 1 : c.y < 440 ? 0.5 : c.y >= 590 ? 0.1 : 0.3;
 
+// Crew walk on a real-time clock, called from both the draw loop and the game tick,
+// so they keep moving at full speed even if the browser slows down drawing.
+let lastWalk = performance.now();
+function walkClock() {
+  const now = performance.now(), dt = Math.min(1, (now - lastWalk) / 1000); lastWalk = now;
+  if (playing() && !frozen()) stepCrew(dt * SPEED);
+}
+
 // ---------- game loop ----------
-function setPhase(p, dur, banner) { S.phase = p; S.t = S.dur = dur; if (banner) S.banner = { text: banner, t: 2.2 }; }
+const BANNER = { calm: '#4be38a', warning: '#ffb938', storm: '#ff4d5e' };
+function setPhase(p, dur, banner, sub) { S.phase = p; S.t = S.dur = dur; if (banner) S.banner = { text: banner, sub, t: 2.6, color: BANNER[p] || '#37d6ff' }; }
 
 function startRound() {
-  S.stats = { breaks: 0, hours: 0, use: { o2: 0, h2o: 0, food: 0 }, split: 0, garden0: S.garden };
-  S.ggDone = false;
-  setPhase('calm', 25, 'ALL CLEAR');
-  $('#modal').classList.remove('show', 'fixing');
-  log('All clear. Collect science outside and keep supplies topped up.', 'good', true);
+  const ev = EVENTS[S.round];
+  S.stats = { breaks: 0, hours: 0, use: { o2: 0, h2o: 0, food: 0 }, split: 0, garden0: S.garden, shieldH: 0, caught: [], partsUsed: false };
+  S.ggDone = false; S.hint = null; S.pendingFix = null;
+  setPhase('calm', (ev.calm || 25) * LV().calm, 'ALL CLEAR', S.round ? `Get ready for storm ${S.round + 1}` : 'Collect science while it is calm');
+  $('#modal').classList.remove('show', 'fixing'); $('#dossier').className = '';
+  // solar panels unfold: put the machines back to how they were set before the storm, as far as power allows
+  if (S.preLvl) { S.supply = S.panelsDown ? 10 : 14; for (const k of ['o2', 'h2o', 'farm']) while (S.sys[k].lvl < S.preLvl[k] && used() + KW_PER_LEVEL <= S.supply) S.sys[k].lvl++; S.preLvl = null; }
+  SFX.ambience('calm'); SFX.play('allclear');
+  log(S.panelsDown ? 'All clear, but the solar panels are offline. Tap the yellow REBOOT bubble to bring power back.'
+    : S.round ? 'All clear. Check your supplies and collect science before the next storm.'
+    : 'Welcome to the Moon! Send crew outside to collect science stars while it is calm.', 'good');
+  render();
+}
+
+// Context-aware pointer for new players (always on in Cadet level, first storm in the others).
+function updateHint(ev) {
+  S.hint = null;
+  if (!(LV().hints || S.round === 0) || S.gg) return;
+  const active = S.crew.filter(c => !c.out);
+  if (S.phase === 'warning' || (S.phase === 'storm' && S.I > 0.4)) {
+    const c = active.find(c => c.zone !== 'shelter');
+    if (c && S.phase === 'warning') S.hint = { x: c.x, y: c.y - 70, text: `Drag ${c.name} to the Storm Shelter!`, zone: 'shelter' };
+  }
+  const broken = Object.keys(S.sys).find(k => S.sys[k].broken);
+  if (!S.hint && broken && S.phase !== 'warning') S.hint = { x: SYSTEMS[broken].at[0], y: SYSTEMS[broken].at[1] - 6, text: 'Tap FIX!' };
+  if (!S.hint && canProtect()) S.hint = { x: PROTECT_AT[0], y: PROTECT_AT[1] - 6, text: 'Tap to protect the plants!' };
+  if (!S.hint && S.panelsDown && S.phase === 'calm') S.hint = { x: REBOOT_AT[0], y: REBOOT_AT[1] - 6, text: 'Tap to reboot the panels!' };
+  if (!S.hint && S.phase === 'calm' && S.round === 0 && S.dur - S.t < 9 && !at('eva').length) {
+    const c = active.find(c => c.job === 'geologist') || active[0];
+    if (c) S.hint = { x: c.x, y: c.y - 70, text: `Drag ${c.name} outside to collect ★`, zone: 'eva' };
+  }
+}
+
+const CHATTER = {
+  eva: ['Found a shiny rock!', 'Sample bagged!', 'What a view of Earth!', 'One small hop…'],
+  green: ['The tomatoes look happy.', 'Watering time!', 'Smells like salad.'],
+  work: ['All systems humming.', 'Tightening a bolt.', 'Tools ready.'],
+  shelter: ['Safe and sound.', 'Cozy down here.', 'Good call, Commander.'],
+  scared: ['Uh oh…', 'Should I head in?', 'That Sun looks angry!'],
+};
+function chatter(dt) {
+  if ((S.chatAt -= dt) > 0) return;
+  S.chatAt = 5 + Math.random() * 4;
+  const pool = S.crew.filter(c => !c.out && !c.path.length); if (!pool.length) return;
+  const c = pool[Math.floor(Math.random() * pool.length)];
+  const scared = S.phase !== 'calm' && c.zone !== 'shelter';
+  const lines = CHATTER[scared ? 'scared' : c.zone];
+  speak(c, lines[Math.floor(Math.random() * lines.length)]);
+  if (scared) emote(c, '😨', 2);
 }
 
 function tick() {
   walkClock();
-  if (!playing() || S.gg) return;          // paused while Greenhouse Guard is open
-  const dt = DT * SPEED, ev = EVENTS[S.round];
+  if (!playing() || frozen()) return;
+  const dt = DT * SPEED, ev = EVENTS[S.round], L = LV();
   S.t -= dt;
 
-  // power: solar arrays fold into safe mode during the storm
-  S.supply = S.phase === 'storm' ? 10 : 14;
+  // power: solar arrays fold into safe mode during the storm, and can stay offline after a big one
+  S.supply = S.phase === 'storm' ? 10 + (S.cargo.batt ? 2 : 0) : S.panelsDown ? 10 : 14;
   let shed = false;
   for (const k of ['farm', 'h2o', 'o2', 'shield']) while (used() > S.supply && S.sys[k].lvl > 0) { S.sys[k].lvl--; shed = true; }
-  if (shed) log('Solar panels folded for safety. Less power: some systems were turned down.', 'warn');
+  if (shed) { log('Less solar power now. Some machines were turned down: check your power!', 'warn', null); SFX.play('powerdn'); }
 
   // storm intensity rises, peaks, then fades
   S.I = S.phase === 'storm' ? ev.sev * 3 * Math.pow(Math.sin(Math.PI * (1 - S.t / S.dur)), 0.7) || 0 : 0;
+  SFX.geiger(S.I);
 
   const active = S.crew.filter(c => !c.out);
 
@@ -417,7 +395,7 @@ function tick() {
   const h = dt * hoursPerSec(ev), T = S.tanks;
   S.hours += h; S.stats.hours += h;
   const use = { o2: 0, h2o: 0, food: 0 };            // kg per hour for the whole crew
-  active.forEach(c => { const r = BVAD[activity(c)]; for (const k in use) use[k] += r[k] / 24; });
+  active.forEach(c => { const r = BVAD[activity(c)]; for (const k in use) use[k] += r[k] / 24 * L.use; });
   const farmers = at('green').reduce((a, c) => a + (c.job === 'botanist' ? 2 : 1), 0);
   // food grows in proportion to garden health (storm-damaged plants grow less)
   const makeFood = (lvl('farm') ? MAKE.farm * lvl('farm') + MAKE.farmer * farmers : 0) * S.garden / 100;
@@ -425,28 +403,36 @@ function tick() {
   // oxygen is made from water: no water, no oxygen
   const wantO2 = MAKE.o2 * lvl('o2');
   const makeO2 = Math.min(wantO2, Math.max(0, T.h2o + (makeH2o - use.h2o) * h) / H2O_PER_O2 / Math.max(h, 1e-9));
-  if (wantO2 > 0 && makeO2 < wantO2 * 0.5 && !S.dry) { S.dry = true; log('Water tank empty! The oxygen machine needs water to make air.', 'bad', true); }
+  if (wantO2 > 0 && makeO2 < wantO2 * 0.5 && !S.dry) { S.dry = true; log('Water tank empty! The oxygen machine needs water to make air.', 'bad'); Learn.flash('water', false); }
   if (makeO2 >= wantO2 * 0.5) S.dry = false;
   S.rate = { o2: makeO2 - use.o2, h2o: makeH2o - use.h2o - makeO2 * H2O_PER_O2, food: makeFood - use.food };
   for (const k in T) T[k] = Math.max(0, Math.min(TANK[k], T[k] + S.rate[k] * h));
   for (const k in use) S.stats.use[k] += use[k] * h;
   S.stats.split += makeO2 * H2O_PER_O2 * h;
+  if (lvl('shield')) S.stats.shieldH += h;
+  for (const k in T) if (pct(k) < 20 && once('low' + k + S.round)) log(`${{ o2: 'Oxygen', h2o: 'Water', food: 'Food' }[k]} is running low! Give that machine more power.`, 'warn');
 
   // science from the surface
   at('eva').forEach(c => {
-    const g = c.job === 'geologist' ? 2 : 1;
-    S.science += g * dt;
-    if (Math.random() < 0.35 * dt) S.fx.push({ x: c.x, y: c.y - 70, text: '★+' + g, t: 1.2, color: '#ffb938' });
+    const gain = (c.job === 'geologist' ? 2 : 1) * (S.cargo.sci ? 1.5 : 1);
+    S.science += gain * dt;
+    if (Math.random() < 0.3 * dt) { S.fx.push({ x: c.x, y: c.y - 84, text: '★+' + Math.round(gain * 3), t: 1.2, color: '#ffd84a' }); SFX.play('star'); for (let i = 0; i < 5; i++) S.parts.push({ x: c.x, y: c.y - 60, vx: rnd(-40, 40), vy: rnd(-70, -20), t: 0.7, life: 0.7, color: '255,216,74', size: 2 }); }
   });
 
   // storm breaks things
-  if (S.phase === 'storm' && Math.random() < 0.05 * ev.sev * dt) {
+  if (S.phase === 'storm' && Math.random() < 0.05 * ev.sev * L.brk * dt) {
     const ok = Object.keys(S.sys).filter(k => !S.sys[k].broken && S.sys[k].lvl > 0);
     if (ok.length) {
       const k = ok[Math.floor(Math.random() * ok.length)];
-      S.sys[k].broken = true; S.sys[k].repair = 0; S.stats.breaks++; S.shake = 0.4;
-      log(`${SYSTEMS[k].name} system knocked out! Send someone to the Workshop and press FIX.`, 'bad', true);
-      beep(140, 0.4, 'sawtooth');
+      S.stats.breaks++; S.shake = 0.4; SFX.play('break');
+      if (S.cargo.parts && !S.stats.partsUsed) {
+        S.stats.partsUsed = true; S.fx.push({ x: SYSTEMS[k].at[0], y: SYSTEMS[k].at[1], text: '🔧 SPARE PART!', t: 1.6, color: '#4be38a' });
+        log(`${SYSTEMS[k].name} machine was hit, but your spare parts kit fixed it right away!`, 'good');
+      } else {
+        S.sys[k].broken = true; S.sys[k].repair = 0;
+        log(`${SYSTEMS[k].name} machine knocked out! Tap the red FIX bubble.`, 'bad');
+        if (once('zap')) Learn.flash('zap', false);
+      }
     }
   }
   // slow automatic repair while someone is in the Workshop (the mini-game is much faster)
@@ -455,161 +441,315 @@ function tick() {
     S.sys[broken].repair += 4 * at('work').length * dt;
     if (S.sys[broken].repair >= 100) repaired(broken);
   }
+  if (S.pendingFix && S.sys[S.pendingFix].broken && at('work').length) { const k = S.pendingFix; S.pendingFix = null; openFix(k); }
 
   // radiation dose + health
   const cut = 1 - 0.2 * lvl('shield');
-
   // greenhouse garden: only severe storms hurt the plants (thin walls); the water shield helps.
   // Playing Greenhouse Guard protects it for the rest of the storm. Between storms it regrows
   // while the grow lights are on, fastest with the Botanist tending it.
-  if (S.phase === 'storm' && severe(ev) && !S.ggDone) S.garden = Math.max(0, S.garden - GARDEN_DMG * S.I * cut * dt);
+  if (S.phase === 'storm' && severe(ev) && !S.ggDone) S.garden = Math.max(0, S.garden - GARDEN_DMG * S.I * cut * L.dose * dt);
   else if (S.phase !== 'storm' && lvl('farm')) S.garden = Math.min(100, S.garden + (at('green').some(c => c.job === 'botanist') ? 1.2 : 0.3) * dt);
   active.forEach(c => {
-    c.dose += S.I * radAt(c) * cut * dt;
-    if (T.o2 <= 0) c.health -= 4 * dt;
-    if (T.h2o <= 0) c.health -= 1.5 * dt;
-    if (T.food <= 0) c.health -= 1 * dt;
+    const where = radAt(c), vest = S.cargo.vest && where > 0.1 ? 0.75 : 1;
+    const before = c.dose;
+    c.dose += S.I * where * cut * L.dose * vest * dt + BACKGROUND * where * h;
+    if (before < 15 && c.dose >= 15 && once('bio' + c.id)) {          // 150 mSv: bio-telemetry alert, backed by NASA OSDR research
+      log(`Bio-telemetry alert: ${c.name}'s radiation dose is climbing. Get them to the shelter.`, 'warn'); emote(c, '⚠️', 2.5); Learn.flash('cells', false);
+    }
+    if (T.o2 <= 0) c.health -= 4 * L.use * dt;
+    if (T.h2o <= 0) c.health -= 1.5 * L.use * dt;
+    if (T.food <= 0) c.health -= 1 * L.use * dt;
     if (c.dose >= 100) c.health = 0;
     if (c.health <= 0) {
       c.health = 0; c.out = true; c.path = [];
       const heir = c.id === 'cmd' && S.crew.find(o => !o.out && o.id !== 'cmd');
-      log(heir ? `Commander ${c.name} is down and has been evacuated! ${heir.name} takes command.`
-        : `${c.name} is too sick to continue and has been evacuated.`, 'bad', true);
+      log(heir ? `Commander ${c.name} is too sick to work and is resting in the medical bay. ${heir.name} takes command.`
+        : `${c.name} is too sick to work and is resting in the medical bay.`, 'bad');
+      SFX.play('lose');
     }
   });
-
-  if (S.phase === 'storm' && Math.round(S.t / dt) % 4 === 0) beep(330, 0.08);
-  if (S.phase === 'warning' && Math.round(S.t / dt) % 4 === 0) beep(700, 0.04, 'sine');
+  chatter(dt);
+  updateHint(ev);
 
   // phase changes
   if (!S.crew.some(c => !c.out)) endGame();
   else if (S.t <= 0) {
     if (S.phase === 'calm') {
-      setPhase('warning', ev.warn, 'STORM INCOMING');
-      log(`${ev.cls} solar flare detected! Radiation arrives in ${warnMins(ev)} minutes${ev.mins != null ? '' : ' (drill)'}. Everyone to the Storm Shelter!`, 'warn', true);
+      setPhase('warning', ev.warn * L.warn, 'STORM INCOMING', 'Everyone to the Storm Shelter!');
+      SFX.ambience('warning'); SFX.play('alarm'); showDossier(ev);
+      log(`Storm Watch, this is Mission Control. An ${ev.cls[0]} class solar flare, strength ${ev.cls.slice(1)}, has been detected. Radiation arrives in ${fmtMins(warnMins(ev))}${ev.mins != null ? '' : ', this is a drill'}. All crew to the Storm Shelter!`, 'warn');
     } else if (S.phase === 'warning') {
-      setPhase('storm', ev.storm, 'RADIATION STORM'); S.shake = 0.8;
-      if (severe(ev)) log('Severe storm! Radiation is hitting the greenhouse plants. Tap 🌱 PROTECT on the Greenhouse!', 'bad', true);
-      else log('The radiation storm has reached the outpost!', 'bad', true);
-    } else debrief();
+      S.preLvl = Object.fromEntries(Object.keys(S.sys).map(k => [k, S.sys[k].lvl]));
+      setPhase('storm', ev.storm, 'RADIATION STORM', 'Stay in the shelter. Fix what breaks.'); S.shake = 0.9;
+      SFX.ambience('storm'); SFX.play('stormhit'); $('#dossier').className = 'mini';
+      const outside = active.filter(c => c.zone !== 'shelter' || c.path.length);
+      S.stats.caught = outside.map(c => c.name);
+      outside.forEach(c => emote(c, '😱', 2.5));
+      if (!outside.length) { log('Everyone is in the shelter. Great work, Commander!', 'good'); Learn.flash('shelter'); S.science += 10; S.fx.push({ x: 600, y: 520, text: '★+10 ALL SAFE', t: 1.8, color: '#4be38a', size: 20 }); }
+      else { log(`The storm has hit! ${outside.map(c => c.name).join(' and ')} ${outside.length > 1 ? 'are' : 'is'} not in the shelter yet!`, 'bad'); Learn.flash(outside.some(c => c.y <= SURF + 2) ? 'outside' : S.cargo.vest ? 'vest' : 'shelter', false); }
+      if (severe(ev)) setTimeout(() => S.phase === 'storm' && !S.ggDone && log('Severe storm! Radiation is hitting the greenhouse plants. Tap the green PROTECT bubble!', 'bad'), 5000);
+    } else {
+      if ((S.endless || S.round < EVENTS.length - 1) && (severe(ev) || ev.key === '2023')) S.panelsDown = true;   // big storms leave the panels needing a reboot
+      debrief();
+    }
   }
   render();
 }
 
 function repaired(k) {
-  S.sys[k].broken = false; S.sys[k].repair = 0;
-  log(`${SYSTEMS[k].name} system repaired.`, 'good'); beep(880, 0.12, 'sine');
-  const [x, y] = SYSTEMS[k].at; S.fx.push({ x, y, text: '✔ FIXED', t: 1.5, color: '#4be38a' });
+  S.sys[k].broken = false; S.sys[k].repair = 0; S.fixes++;
+  log(`${SYSTEMS[k].name} machine repaired. Nice work!`, 'good'); SFX.play('fixed');
+  const [x, y] = SYSTEMS[k].at; S.fx.push({ x, y, text: '✔ FIXED', t: 1.5, color: '#4be38a', size: 20 });
+  for (let i = 0; i < 14; i++) S.parts.push({ x, y, vx: rnd(-80, 80), vy: rnd(-90, 10), t: 0.8, life: 0.8, color: '75,227,138', size: 2.5 });
+  Learn.flash({ o2: 'oxygen', h2o: 'water', farm: 'salad', shield: 'shelter' }[k]);
 }
 
-// ---------- repair mini-game: match the plugs ----------
+// ---------- repairs ----------
+// Oxygen is rebooted with the Cosmic Match mini-game; the other machines with a quick plug puzzle.
 function openFix(k) {
-  if (!S.sys[k].broken || !playing()) return;
-  if (!at('work').length) { log('Nobody is in the Workshop. Drag a crew member there first.', 'warn'); beep(180, 0.1); return; }
-  const n = at('work').some(c => c.job === 'engineer') ? 3 : 4;
+  if (!S.sys[k].broken || !playing() || S.gg) return;
+  if (!at('work').length) {
+    const c = S.crew.find(c => !c.out && c.job === 'engineer') || S.crew.find(c => !c.out && c.job === 'pilot') || S.crew.find(c => !c.out);
+    if (c) { orderMove(c, 'work'); S.pendingFix = k; log(`${c.name} is running to the Workshop to fix it!`, 'warn', null); }
+    return;
+  }
+  if (k === 'o2') return openMini('cm', ok => { if (ok) repaired('o2'); else log('The oxygen machine is still broken. Tap FIX to try again.', 'warn', null); });
+  const n = at('work').some(c => c.job === 'engineer') || LV().hints ? 3 : 4;
   const plugs = [['#ff4d5e', '●'], ['#37d6ff', '▲'], ['#4be38a', '■'], ['#ffb938', '◆']].slice(0, n);
   const order = plugs.map((_, i) => i).sort(() => Math.random() - 0.5);
   const btn = (i, side) => `<button data-i="${i}" data-side="${side}" style="background:${plugs[i][0]};border-color:${plugs[i][0]}">${plugs[i][1]}</button>`;
   $('#card').innerHTML = `<h2>🔧 FIX: ${SYSTEMS[k].name.toUpperCase()}</h2><p>Tap a plug on the left, then its matching socket on the right.</p>
     <div class="wires"><div>${plugs.map((_, i) => btn(i, 'L')).join('')}</div><div>${order.map(i => btn(i, 'R')).join('')}</div></div>`;
-  $('#modal').classList.add('show', 'fixing');
+  $('#modal').classList.add('show', 'fixing'); SFX.play('whoosh');
   let picked = null, done = 0;
   $('#card').querySelectorAll('.wires button').forEach(b => b.onclick = () => {
     if (b.dataset.side === 'L') {
       $('#card').querySelectorAll('.pick').forEach(p => p.classList.remove('pick'));
-      picked = b; b.classList.add('pick'); beep(500, 0.04, 'sine');
+      picked = b; b.classList.add('pick'); SFX.play('click');
     } else if (picked && picked.dataset.i === b.dataset.i) {
-      picked.classList.remove('pick'); picked.classList.add('done'); b.classList.add('done'); picked = null; beep(760, 0.06, 'sine');
+      picked.classList.remove('pick'); picked.classList.add('done'); b.classList.add('done'); picked = null; SFX.play('plug');
       if (++done === n) { $('#modal').classList.remove('show', 'fixing'); repaired(k); render(); }
-    } else beep(160, 0.15);
+    } else SFX.play('deny');
   });
 }
 
+// ---------- the team's three mini-games, opened inside the main game ----------
+// Each one runs in its own frame and reports back when finished. The base is paused meanwhile.
+const MINI = {
+  gg: { title: '🌱 GREENHOUSE GUARD', sub: 'Shield the plants from the storm', color: '#4be38a', big: false,
+        src: () => `greenhouse-guard.html?embed=1&waves=${EVENTS[S.round].sev >= 2 && !LV().hints ? 2 : 1}&health=${Math.round(S.garden)}`, leave: 'Leave plants unprotected' },
+  cm: { title: '🛰️ COSMIC MATCH', sub: 'Match the NASA pictures to reboot the oxygen machine', color: '#37d6ff', big: true, src: () => 'cosmic-match.html?embed=1', leave: 'Back to base' },
+  sr: { title: '⚡ SOLAR REBOOT', sub: 'Reconnect the solar panels', color: '#ffb938', big: true, src: () => 'solar-panels.html?embed=1', leave: 'Back to base' },
+};
+let miniDone = null;
+function openMini(kind, done) {
+  if (S.gg) return;
+  const m = MINI[kind];
+  S.gg = kind; miniDone = done; SFX.hush(); SFX.play('whoosh'); render();
+  // transition: a coloured iris closes over the base with the mini-game's name, then the game opens
+  const warp = document.createElement('div');
+  warp.id = 'warp'; warp.style.setProperty('--c', m.color);
+  warp.innerHTML = `<div><b>${m.title}</b><span>${m.sub}</span></div>`;
+  document.body.appendChild(warp);
+  setTimeout(() => {
+    const wrap = document.createElement('div');
+    wrap.id = 'ggwrap'; wrap.className = m.big ? 'big' : '';
+    wrap.innerHTML = `<div class="ggbox" style="border-color:${m.color}"><div class="gghead"><b style="color:${m.color}">${m.title}</b><span>The base is paused</span><button id="ggleave">✕ ${m.leave}</button></div>
+      <iframe src="${m.src()}" title="${m.title} mini-game"></iframe></div>`;
+    document.body.appendChild(wrap);
+    $('#ggleave').onclick = () => closeMini(null);
+    warp.classList.add('out'); setTimeout(() => warp.remove(), 600);
+  }, 950);
+}
+function closeMini(result) {
+  const w = $('#ggwrap'); if (!w) return;
+  w.classList.add('closing'); SFX.play('whooshout');
+  setTimeout(() => { w.remove(); S.gg = false; const d = miniDone; miniDone = null; lastWalk = performance.now(); d && d(result); render(); }, 380);
+}
+addEventListener('message', e => {
+  if (e.origin !== location.origin || !e.data || !S.gg) return;
+  const src = { 'greenhouse-guard': 'gg', 'cosmic-match': 'cm', 'solar-reboot': 'sr' }[e.data.source];
+  if (src === S.gg) closeMini(src === 'gg' ? e.data : e.data.ok);
+});
+function openGarden() {
+  if (!canProtect() || S.gg) return;
+  openMini('gg', result => {
+    if (result) {
+      S.garden = Math.max(0, Math.min(100, result.health)); S.ggDone = true;
+      log(`Greenhouse protected! Garden health ${Math.round(S.garden)}%. The water shield covers it for the rest of this storm.`, 'good'); Learn.flash('salad');
+    } else log('The plants are still exposed. Tap PROTECT to go back.', 'warn', null);
+  });
+}
+function openReboot() {
+  if (!S.panelsDown || S.gg || !playing()) return;
+  openMini('sr', ok => {
+    if (ok) { S.panelsDown = false; log('Solar panels are back online. Full power restored!', 'good'); SFX.play('fixed'); Learn.flash('sunlight'); }
+    else log('The solar panels are still offline. Tap REBOOT to try again.', 'warn', null);
+  });
+}
+
+// ---------- Call Mission Control: real signal delay, then advice ----------
+// A radio signal takes about 1.3 seconds to cross the 384,400 km to Earth, and 1.3 back.
+function advice() {
+  const active = S.crew.filter(c => !c.out), out = active.filter(c => c.zone !== 'shelter');
+  const broken = Object.keys(S.sys).find(k => S.sys[k].broken), spare = S.supply - used();
+  if (S.phase !== 'calm' && out.length) return `Get ${out.map(c => c.name).join(' and ')} into the Storm Shelter now.`;
+  if (broken) return `The ${SYSTEMS[broken].name.toLowerCase()} machine is broken. Tap its red FIX bubble.`;
+  if (canProtect()) return 'The greenhouse is taking radiation. Tap the green PROTECT bubble.';
+  if (S.panelsDown) return 'Your solar panels are offline. Tap the yellow REBOOT bubble on the surface.';
+  for (const k of ['o2', 'h2o', 'food']) if (pct(k) < 35) return `${{ o2: 'Oxygen', h2o: 'Water', food: 'Food' }[k]} is getting low. Give ${k === 'food' ? 'the grow lights' : 'that machine'} more power${k === 'food' ? ' and keep the Botanist in the Greenhouse' : ''}.`;
+  if (S.phase === 'storm' && !lvl('shield') && spare >= 2) return 'You have spare power. Turn on the water shield to cut the radiation.';
+  if (S.phase === 'calm' && lvl('shield')) return 'The Sun is quiet. Turn the shield off and use that power to make supplies.';
+  if (S.phase === 'calm' && !at('eva').length) return 'It is calm. Send the Geologist outside to collect science stars.';
+  if (S.garden < 70) return 'The garden is hurt. Keep the Botanist in the Greenhouse so it grows back.';
+  return 'You are doing great, Commander. Keep an eye on your supplies.';
+}
+function callHome() {
+  if (!playing() || S.call || performance.now() < S.callAt) return;
+  S.call = { t0: performance.now() }; SFX.hush(); SFX.play('signal');
+  log('Calling Mission Control… your message takes 1.3 seconds to reach Earth.', '', null); render();
+  setTimeout(() => {
+    S.call = null; S.callAt = performance.now() + 9000;
+    if (playing()) { log('Mission Control: ' + advice(), 'good'); Learn.flash('delay'); }
+    render(); setTimeout(render, 9100);
+  }, 2600);
+}
+
 // ---------- cards ----------
-function crewLine(c) { return `<li>${portrait(c, 28)}<span><b style="color:${c.color}">${esc(c.name)}</b> <small>${c.name === c.role ? '' : c.role}</small>: ${c.out ? 'evacuated' : `health ${Math.round(c.health)}%`}, total dose ${Math.round(c.dose * 10)} mSv</span></li>`; }
+function crewLine(c) { return `<li>${portrait(c, 28)}<span><b style="color:${c.color}">${esc(c.name)}</b> <small>${c.name === c.role ? '' : c.role}</small>: ${c.out ? 'in the medical bay' : `health ${Math.round(c.health)}%`}, dose ${Math.round(c.dose * 10)} mSv</span></li>`; }
+
+// The storm's real NASA record, shown during the countdown and again in the debrief.
+function stormPanel(ev) {
+  return `<div class="storm"><div class="scale">${['A', 'B', 'C', 'M', 'X'].map(l => `<i class="${l === ev.cls[0] ? 'on' : ''}">${l}</i>`).join('')}<b>${ev.cls}</b>${Learn.chip('flare', 'solar flare')}</div>
+    <dl><dt>When</dt><dd>${ev.date}, ${ev.peak.slice(11, 16)} UTC</dd>
+    ${ev.region ? `<dt>Sunspot</dt><dd>Region ${ev.region}${ev.loc ? ` (${ev.loc})` : ''}</dd>` : ''}
+    <dt>Real warning</dt><dd>${ev.mins != null ? `<b>${fmtMins(ev.mins)}</b> from flare to radiation (${ev.sepInst})` : 'No radiation storm followed this flare, so this one is a practice drill.'}</dd>
+    ${ev.cme ? `<dt>Gas cloud</dt><dd>${ev.cme} ${Learn.chip('cme', 'CME')}</dd>` : ''}</dl>
+    <p class="src">${ev.fromNasa ? '● Live from NASA DONKI' : '○ Saved NASA DONKI data'}${ev.link ? ` · <a href="${ev.link}" target="_blank" rel="noopener">see the NASA record</a>` : ''}</p></div>`;
+}
+function showDossier(ev) { const d = $('#dossier'); d.innerHTML = `<h4>🛰️ STORM TRACKER</h4>${stormPanel(ev)}`; d.className = 'show'; }
 
 function debrief() {
   const ev = EVENTS[S.round];
-  S.phase = 'debrief'; S.I = 0;
+  S.phase = 'debrief'; S.I = 0; S.hint = null; $('#dossier').className = '';
   const worst = Math.max(...S.crew.map(c => c.dose));
-  const last = S.round === EVENTS.length - 1;
-  say('Storm has passed. Stand by for debrief.');
+  const last = !S.endless && S.round === EVENTS.length - 1;
+  SFX.ambience('off'); SFX.play('allclear'); SFX.say('The storm has passed. Stand by for your debrief.', 'capcom', true);
+  Learn.award('first');
+  // "today's choices, tomorrow's costs": the trade-off report
+  const costs = [];
+  if (S.stats.caught.length) costs.push(`☢️ ${S.stats.caught.join(' and ')} ${S.stats.caught.length > 1 ? 'were' : 'was'} outside the shelter when the storm hit and soaked up extra radiation. Dose never goes back down.`);
+  if (S.stats.shieldH > 1) costs.push(`🛡️ You ran the water shield for ${Math.round(S.stats.shieldH)} hours. It cut the radiation, but that power could not make air, water or food.`);
+  if (S.garden < 99) costs.push(`🌱 The garden is at ${Math.round(S.garden)}%. Food will grow slower in the next days until the plants recover.`);
+  if (S.panelsDown) costs.push('⚡ The storm knocked the solar panels offline. You will have less power until you reboot them.');
+  for (const k of ['o2', 'h2o', 'food']) if (pct(k) < 30) costs.push(`${SYSTEMS[k === 'food' ? 'farm' : k].icon} ${{ o2: 'Oxygen', h2o: 'Water', food: 'Food' }[k]} is down to ${Math.round(pct(k))}%. Hiding in the shelter kept the crew safe, but nobody was making supplies.`);
+  if (!costs.length) costs.push('✅ Great balance! Your crew stayed safe and your supplies held up.');
   showCard(`
-    <h2>STORM ${S.round + 1} SURVIVED</h2>
+    <h2>STORM ${S.round + 1} SURVIVED!</h2>
     <ul class="crewlist">${S.crew.map(crewLine).join('')}</ul>
-    <p>Systems knocked out: <b>${S.stats.breaks}</b> · Highest crew dose so far: <b>${Math.round(worst * 10)} mSv</b> (NASA career limit: 600 mSv)</p>
-    ${severe(ev) || S.garden < 100 ? `<p class="life">🌱 Greenhouse garden: <b>${Math.round(S.garden)}%</b> healthy${severe(ev) ? (S.ggDone ? ' (you protected it with the water shield)' : ' (left unprotected during a severe storm)') : ''}. Food grows at ${Math.round(S.garden)}% speed until the plants recover.</p>` : ''}
-    <p class="life">Over these <b>${Math.round(S.stats.hours)} hours</b> your crew breathed <b>${S.stats.use.o2.toFixed(1)} kg</b> of oxygen,
+    <p>Highest crew dose so far: <b>${Math.round(worst * 10)} mSv</b> ${Learn.chip('dose', 'mSv')} · NASA's career limit for astronauts is 600 mSv.</p>
+    <h3>${ev.mins != null ? 'THIS REALLY HAPPENED' : 'REAL FLARE, PRACTICE STORM'}: ${ev.title.toUpperCase()}</h3>
+    <div class="real">${ev.fact}</div>
+    ${stormPanel(ev)}
+    <div class="quiz" id="quiz"></div>
+    <h3>YOUR CHOICES AND WHAT THEY COST</h3>
+    <ul class="costs">${costs.map(c => `<li>${c}</li>`).join('')}</ul>
+    <p class="life">In these <b>${Math.round(S.stats.hours)} hours</b> your crew breathed <b>${S.stats.use.o2.toFixed(1)} kg</b> of oxygen,
       drank <b>${S.stats.use.h2o.toFixed(1)} kg</b> of water and ate <b>${S.stats.use.food.toFixed(1)} kg</b> of food.
-      The oxygen machine split <b>${S.stats.split.toFixed(1)} kg</b> of water to make air.
-      <small>Rates from NASA's Life Support Baseline Values and Assumptions Document (BVAD).</small></p>
-    <h3>${ev.mins != null ? 'THIS REALLY HAPPENED' : 'REAL FLARE, PRACTICE STORM'} — ${ev.date}</h3>
-    <div class="real"><b>${ev.title}.</b> ${ev.fact}</div>
-    <table class="data">
-      <tr><td>Flare class</td><td><b>${ev.cls}</b> (peak ${ev.peak.slice(11, 16)} UTC)</td></tr>
-      ${ev.region ? `<tr><td>Sunspot region</td><td>${ev.region}${ev.loc ? ` at ${ev.loc}` : ''}</td></tr>` : ''}
-      <tr><td>Real warning time</td><td>${ev.mins != null
-        ? `<b>${ev.mins} minutes</b> from flare peak to radiation at ${ev.sepTime.slice(11, 16)} UTC (${ev.sepInst})`
-        : 'No radiation storm recorded for this flare'}</td></tr>
-    </table>
-    <p class="src">${ev.fromNasa ? '● Loaded live from NASA DONKI' : '○ Saved copy of NASA DONKI data (offline)'}${ev.link ? ` · <a href="${ev.link}" target="_blank" rel="noopener">view NASA record</a>` : ''}</p>
-    <button class="go" id="go">${last ? 'See final rating' : 'Next storm ▶'}</button>`,
-    () => { if (last) endGame(); else { S.round++; startRound(); } });
+      <small>Rates from NASA's Life Support BVAD.</small></p>
+    <button class="go" id="go">${last ? 'One more thing… ▶' : 'Next storm ▶'}</button>
+    ${S.endless ? '<button id="finish">Finish mission</button>' : ''}`,
+    () => {
+      if (last) return startCut('aurora');
+      if (S.endless && S.round === EVENTS.length - 1) addEndlessStorm();
+      S.round++; startRound();
+    });
+  if ($('#finish')) $('#finish').onclick = endGame;
+  S.quizTotal++;
+  Learn.quiz($('#quiz'), ev, S.asked, ok => { if (ok) { S.quizRight++; S.science += 25; render(); } });
+  setTimeout(() => Learn.flash({ live: 'classes', 2023: 'speed', 2024: 'gannon', 2017: 'cells' }[ev.key] || 'apollo'), 1500);
+  if (S.round === 1) setTimeout(() => Learn.flash('bones'), 14000);
+}
+
+function addEndlessStorm() {
+  const n = S.round + 1 - CAMPAIGN.length, x = EXTRA[n % Math.max(1, EXTRA.length)];
+  if (!x) return EVENTS.push({ ...EVENTS[EVENTS.length - 1] });
+  EVENTS.push(makeEvent({ key: 'x' + n, title: `The ${x.cls} Flare of ${x.peak.slice(0, 4)}`, sev: Math.min(3.2, 2 + n * 0.15), calm: 22, warn: 12, storm: 34,
+    fact: `A real ${x.cls} flare from NASA's records. It sent solar particles all the way to the GOES satellites near Earth.` }, x, false));
 }
 
 function endGame() {
-  S.phase = 'end'; S.I = 0;
-  const alive = S.crew.filter(c => !c.out);
-  const T = S.tanks;
+  S.phase = 'end'; S.I = 0; S.hint = null; S.cut = null; $('#dossier').className = '';
+  SFX.ambience('off');
+  const alive = S.crew.filter(c => !c.out), T = S.tanks, L = Learn.log;
   const score = Math.round(S.science + S.crew.reduce((a, c) => a + c.health, 0) * 2 + pct('o2') + pct('h2o') + pct('food')
     - S.crew.reduce((a, c) => a + c.dose, 0));
-  let rating = score >= 1000 ? 'FLIGHT DIRECTOR' : score >= 800 ? 'MISSION COMMANDER' : score >= 550 ? 'MISSION SPECIALIST' : 'CADET — BACK TO TRAINING';
-  if (alive.length < 4 && score >= 800) rating = 'MISSION SPECIALIST';
-  if (!alive.length) rating = 'MISSION FAILED';
-  say(`Mission over. Your flight readiness rating is ${rating}.`);
+  let rating = score >= 1300 ? 'FLIGHT DIRECTOR' : score >= 1100 ? 'MISSION COMMANDER' : score >= 850 ? 'MISSION SPECIALIST' : 'CADET IN TRAINING';
+  if (alive.length < 4 && score >= 1100) rating = 'MISSION SPECIALIST';
+  if (!alive.length) rating = 'MISSION CUT SHORT';
+  const fresh = [];
+  const give = (id, cond) => { if (cond && Learn.award(id)) fresh.push(id); };
+  give('safe', alive.length === 4); give('quiz', S.quizTotal >= 4 && S.quizRight === S.quizTotal); give('garden', alive.length && S.garden > 80);
+  give('fixer', S.fixes >= 5); give('director', rating === 'FLIGHT DIRECTOR');
+  L.plays++; const record = score > L.best; if (record) L.best = score; Learn.save();
+  SFX.play(alive.length ? 'win' : 'lose');
+  SFX.say(alive.length ? `Mission complete. Your flight readiness rating is ${rating.toLowerCase()}. Well done, Commander.` : 'Mission cut short. Every astronaut trains many times. Try again, Commander.', 'capcom', true);
   showCard(`
     <h2>FLIGHT READINESS RATING</h2>
     <div class="rating">${rating}</div>
-    <p>Score: <b>${score}</b> · Science: <b>${Math.floor(S.science)}</b> · Crew still on duty: <b>${alive.length} / 4</b></p>
+    <p class="scoreline">Score <b>${score}</b>${record ? ' <em>NEW BEST!</em>' : ` · best ${L.best}`} · Science ★ <b>${Math.floor(S.science)}</b> · Quiz <b>${S.quizRight}/${S.quizTotal}</b> · Storms survived <b>${S.round + (alive.length ? 1 : 0)}</b></p>
     <ul class="crewlist">${S.crew.map(crewLine).join('')}</ul>
-    ${S.crew[0].out && alive.length ? `<p>Commander ${esc(S.crew[0].name)} was evacuated; ${esc(alive[0].name)} brought the crew home.</p>` : ''}
+    ${S.crew[0].out && alive.length ? `<p>Commander ${esc(S.crew[0].name)} needed the medical bay; ${esc(alive[0].name)} led the crew.</p>` : ''}
+    ${fresh.length ? `<h3>NEW BADGES</h3><div class="badges">${fresh.map(id => `<div class="got"><span>${Learn.BADGES[id][0]}</span><b>${Learn.BADGES[id][1]}</b></div>`).join('')}</div>` : ''}
     <p>Mission length: ${clock(S.hours).replace(' · ', ', ')} · Supplies left: oxygen ${T.o2.toFixed(1)} kg, water ${T.h2o.toFixed(1)} kg, food ${T.food.toFixed(1)} kg</p>
-    <button class="go" id="go">Play again</button>`, () => { newGame(); intro(); });
+    <p class="src">Fact cards collected: <b>${L.cards.length} / ${Object.keys(Learn.CARDS).length}</b>. Play again to find them all. Storm 1 changes whenever the real Sun does.</p>
+    <button class="go" id="go">Play again ▶</button>
+    ${alive.length && !S.endless ? '<button id="endless">♾ Keep going: more real storms</button>' : ''}
+    <button id="lb2">📖 Logbook</button>`, () => { newGame(); intro(); });
+  $('#lb2').onclick = Learn.logbook;
+  if ($('#endless')) $('#endless').onclick = () => { S.endless = true; addEndlessStorm(); S.round++; startRound(); };
+  if (fresh.length) setTimeout(() => SFX.play('badge'), 1600);
 }
 
 function showCard(html, onGo) {
   $('#card').innerHTML = html;
   $('#modal').classList.remove('fixing'); $('#modal').classList.add('show');
-  $('#go').onclick = onGo;
+  $('#card').scrollTop = 0;
+  $('#go').onclick = () => { SFX.unlock(); SFX.play('click'); onGo(); };
   render();
 }
 
-let loaded, srcText = 'Contacting NASA for solar storm data…';
+// ---------- title screen ----------
+let loaded, srcText = 'Contacting NASA for today\'s solar storm data…';
 function roster() {
   return `<div class="roster">${S.crew.map(c => `<div>${portrait(c, 54)}<b style="color:${c.color}">${esc(c.name)}</b><small>${c.role} · ${c.perk}</small></div>`).join('')}</div>`;
 }
 function intro() {
+  S.phase = 'brief';
   showCard(`
-    <h2>STORM WATCH</h2>
-    <p>You run a Moon base. Three <b>real solar storms</b> are coming. Keep your crew safe!</p>
+    <div class="title"><span>NASA SPACE APPS 2026 · JUNIOR ASTRONAUT MISSION TRAINER</span><h1>STORM WATCH</h1>
+    <p>You are the Commander of a Moon base. <b>Real solar storms</b> are on the way. Pack your rocket, look after your crew and keep everyone safe!</p></div>
     ${roster()}
-    <button class="custom" id="custom">🧑‍🚀 Customize your Commander</button>
+    <div class="levels" id="levels">${Object.entries(LEVELS).map(([k, l]) => `<button data-l="${k}" class="${k === LEVEL ? 'on' : ''}"><b>${l.name}</b><small>${l.who}</small></button>`).join('')}</div>
     <ul class="how">
-      <li>🧑‍🚀 <b>Drag astronauts</b> between rooms.</li>
-      <li>⭐ Outside they collect <b>science</b>, but have no protection.</li>
+      <li>🧑‍🚀 <b>Drag astronauts</b> between rooms. Outside they collect science ★ but have no protection.</li>
       <li>🚨 When the alarm sounds, get everyone <b>down to the Storm Shelter</b>.</li>
-      <li>🔧 If something breaks, send someone to the <b>Workshop</b> and press <b>FIX</b>.</li>
-      <li>⚡ Use <b>+ / −</b> to share power between oxygen, water, food and the shield.</li>
-      <li>💧 The oxygen machine <b>splits water to make air</b>. Run out of water and the air runs out next.</li>
-      <li>⏱️ Each second is <b>one hour</b> on the base. Working outside uses the most air and water.</li>
+      <li>⚡ Share your power between air, water, food and the shield. <b>Every choice costs something.</b></li>
+      <li>📡 Stuck? <b>Call Mission Control</b>. The answer takes 2.6 seconds to come back from Earth!</li>
     </ul>
     <p class="src" id="src">${srcText}</p>
-    <button class="go" id="go" disabled>Begin mission ▶</button>`, meetCrew);
-  $('#custom').onclick = customize;
+    <button class="go" id="go" disabled>Start mission ▶</button>
+    <div class="menu"><button id="custom">🧑‍🚀 Customize Commander</button><button id="lb">📖 Logbook <small>${Learn.log.cards.length}/${Object.keys(Learn.CARDS).length}</small></button><button id="srcs">🛰️ Real NASA data</button></div>`, meetCrew);
+  $('#custom').onclick = customize; $('#lb').onclick = Learn.logbook; $('#srcs').onclick = Learn.sources;
+  $('#levels').querySelectorAll('button').forEach(b => b.onclick = () => {
+    LEVEL = b.dataset.l; try { localStorage.setItem('stormwatch.level', LEVEL); } catch (e) {}
+    $('#levels').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); SFX.play('select'); render();
+  });
   loaded = loaded || loadEvents();
   loaded.then(() => {
     const n = EVENTS.filter(e => e.fromNasa).length;
-    srcText = n === EVENTS.length ? `● Live NASA DONKI data loaded. Storm 1 is the strongest flare of the last 30 days: ${EVENTS[0].cls} on ${EVENTS[0].date}.`
+    srcText = n === EVENTS.length ? `● Live NASA data loaded. Storm 1 is the strongest flare of the last 30 days: ${EVENTS[0].cls} on ${EVENTS[0].date}.`
       : n ? `◐ ${n} of ${EVENTS.length} storms loaded live from NASA; the rest use saved NASA data.`
       : '○ NASA is unreachable right now. Using saved NASA DONKI data.';
     if ($('#src')) $('#src').textContent = srcText;
@@ -617,138 +757,61 @@ function intro() {
   });
 }
 
-// ---------- Commander customization (saved on this device) ----------
-function customize() {
-  const c = S.crew[0], L = CMD.look;
-  const opt = (group, val, inner, on, title = '') => `<button class="opt${on ? ' on' : ''}" data-g="${group}" data-v="${esc(val)}" title="${esc(title)}">${inner}</button>`;
-  const sw = col => `<i class="sw" style="background:${col}"></i>`;
-  showCard(`
-    <h2>YOUR COMMANDER</h2>
-    <div class="cust">
-      <div class="preview" id="preview">${portrait(c, 120)}</div>
-      <div class="rows">
-        <label>Name <input id="cname" maxlength="12" value="${esc(CMD.name)}" autocomplete="off"></label>
-        <div class="row"><span>Sash</span>${CMD_COLORS.map(col => opt('color', col, sw(col), CMD.color === col)).join('')}</div>
-        <div class="row"><span>Skin</span>${SKIN.map(col => opt('skin', col, sw(col), L.skin === col)).join('')}</div>
-        <div class="row"><span>Hair</span>${Object.entries(STYLES).map(([k, v]) => opt('hair', k, v, L.hair === k)).join('')}</div>
-        <div class="row"><span>${L.hair === 'hijab' ? 'Hijab' : 'Hair'} colour</span>${HAIR.map(col => opt('hairColor', col, sw(col), L.hairColor === col)).join('')}</div>
-        <div class="row"><span>Extra</span>${Object.entries(ACCS).map(([k, v]) => opt('acc', k, v, k === 'none' ? !L.acc.length : L.acc.includes(k))).join('')}</div>
-        <div class="row"><span>Facial hair</span>${opt('beard', 'none', 'None', !L.beard)}${opt('beard', 'beard', 'Beard', !!L.beard)}</div>
-      </div>
-    </div>
-    <p class="src">Commander perk: <b>runs 2x faster</b>. Your choices are saved on this device.</p>
-    <button id="rand">🎲 Randomize</button>
-    <button class="go" id="go">Done ▶</button>`, () => {
-      CMD.name = ($('#cname').value.trim() || 'Commander').slice(0, 12);
-      saveCommander(); applyCommander(); intro();
-    });
-  const pick = a => a[Math.floor(Math.random() * a.length)];
-  $('#card').querySelectorAll('.opt').forEach(b => b.onclick = () => {
-    const gk = b.dataset.g, v = b.dataset.v;
-    if (gk === 'color') CMD.color = v;
-    else if (gk === 'acc') L.acc = v === 'none' ? [] : L.acc.includes(v) ? L.acc.filter(a => a !== v) : [...L.acc, v];
-    else if (gk === 'beard') L.beard = v === 'beard' ? L.hairColor : undefined;
-    else { L[gk] = v; if (gk === 'hairColor' && L.beard) L.beard = v; }
-    CMD.name = ($('#cname').value.trim() || 'Commander').slice(0, 12);
-    applyCommander(); customize(); beep(620, 0.04, 'sine');
-  });
-  $('#rand').onclick = () => {
-    Object.assign(L, { skin: pick(SKIN), hair: pick(Object.keys(STYLES)), hairColor: pick(HAIR),
-      acc: Object.keys(ACCS).filter(k => k !== 'none' && Math.random() < 0.3) });
-    L.beard = L.hair !== 'hijab' && Math.random() < 0.25 ? L.hairColor : undefined;
-    CMD.color = pick(CMD_COLORS);
-    CMD.name = ($('#cname').value.trim() || 'Commander').slice(0, 12);
-    applyCommander(); customize(); beep(620, 0.04, 'sine');
+// ---------- packing on Earth, then launch ----------
+function afterMeet() { showPrep(); }
+function showPrep() {
+  S.phase = 'prep';
+  const usedCrates = () => Object.entries(S.cargo).reduce((a, [k, n]) => a + n * CARGO[k].cost, 0);
+  const paint = () => {
+    const left = CRATES - usedCrates();
+    showCard(`
+      <h2>🚀 PACK YOUR ROCKET</h2>
+      <p>You are still on Earth. Your rocket can lift only <b>${CRATES} crates</b>, so you cannot bring everything. Choose what matters most!</p>
+      <div class="crates">${Array.from({ length: CRATES }, (_, i) => `<i class="${i < CRATES - left ? 'full' : ''}"></i>`).join('')}<b>${left} left</b></div>
+      <div class="cargo">${Object.entries(CARGO).map(([k, c]) => `<div class="${S.cargo[k] ? 'has' : ''}"><span>${c.icon}</span><div><b>${c.name}</b> <em>${c.cost} crate${c.cost > 1 ? 's' : ''}</em><small>${c.tip}</small></div>
+        <button data-k="${k}" data-d="-1" ${S.cargo[k] ? '' : 'disabled'} aria-label="Remove ${c.name}">−</button><strong>${S.cargo[k]}</strong><button data-k="${k}" data-d="1" ${S.cargo[k] < c.max && left >= c.cost ? '' : 'disabled'} aria-label="Add ${c.name}">+</button></div>`).join('')}</div>
+      <p class="src">You start with tanks ${Math.round(START_FILL * 100)}% full, plus whatever you pack. There is no perfect answer: more supplies means less gear.</p>
+      <button class="go" id="go">3, 2, 1… Launch ▶</button> <button id="auto">Mission Control's pick</button>`, launch);
+    $('#card').querySelectorAll('.cargo button').forEach(b => b.onclick = () => { S.cargo[b.dataset.k] += +b.dataset.d; SFX.play(+b.dataset.d > 0 ? 'plug' : 'click'); paint(); });
+    $('#auto').onclick = () => { S.cargo = { h2o: 2, o2: 2, food: 2, parts: 1, vest: 1, sci: 0, batt: 0 }; SFX.play('select'); paint(); };
   };
-  $('#cname').oninput = () => { CMD.name = $('#cname').value.trim() || 'Commander'; applyCommander(); $('#preview').innerHTML = portrait(S.crew[0], 120); };
+  paint();
+  SFX.say('Commander, your rocket can lift ten crates. Choose carefully.', 'capcom', true);
 }
-function applyCommander() {
-  const c = S.crew[0];
-  Object.assign(c, { name: CMD.name, color: CMD.color, look: { ...CMD.look, acc: [...CMD.look.acc] } });
-  buildUI(); render();
+function launch() {
+  for (const k in CARGO_ADD) S.tanks[k] = Math.min(TANK[k], TANK[k] * START_FILL + S.cargo[k] * CARGO_ADD[k]);
+  startCut('launch');
 }
-
-// ---------- crew introduction: zoom to each astronaut, helmet off, speech bubble ----------
-const MEET_LINES = {
-  cmd: c => `${c.name === 'Commander' ? "I'm your Commander." : `I'm ${c.name}, your Commander.`} I move twice as fast, so send me when something breaks in the middle of a storm.`,
-  brian: () => `Brian, Engineer. When a machine goes down, I bring it back. Repairs are easier with me in the Workshop.`,
-  sidra: () => `Sidra, Botanist. Keep me in the Greenhouse and I'll grow twice the food.`,
-  quan: () => `Quan, Geologist. Send me outside and I'll bring back twice the science. Just get me inside before the storm hits!`,
-};
-let meetTimer;
-function meetCrew() {
-  $('#modal').classList.remove('show');
-  S.phase = 'meet'; S.meet = { i: -1 };
-  nextMeet();
-}
-function nextMeet() {
-  clearTimeout(meetTimer);
-  if (!S.meet) return;
-  const i = S.meet.i + 1;
-  if (i >= S.crew.length) return endMeet();
-  const c = S.crew[i];
-  S.meet = { i, c };
-  S.cam.to = { z: 2.6, x: c.x, y: c.y - 40 };
-  const el = $('#meet');
-  el.innerHTML = `<div class="who">${portrait(c, 72)}<div><b style="color:${c.color}">${esc(c.name)}</b><small>${c.role} · ${c.perk}</small></div></div>
-    <p>${esc(MEET_LINES[c.id](c))}</p>
-    <div class="btns"><button id="mskip">Skip intro</button><button id="mnext" class="go">${i === S.crew.length - 1 ? 'Start mission ▶' : 'Next ▶'}</button></div>`;
-  el.style.borderColor = c.color; el.className = 'show';
-  $('#mnext').onclick = nextMeet; $('#mskip').onclick = endMeet;
-  beep(620 + i * 70, 0.07, 'sine');
-  render();
-  meetTimer = setTimeout(nextMeet, 6000);
-}
-function endMeet() {
-  clearTimeout(meetTimer);
-  if (!S.meet) return;
-  S.meet = null; S.cam.to = { z: 1, x: W / 2, y: H / 2 };
-  $('#meet').className = '';
-  startRound();
-}
-
-// ---------- Greenhouse Guard mini-game (embedded) ----------
-// Opens greenhouse-guard.html in embedded mode. The main game pauses until the player returns.
-function openGarden() {
-  if (!canProtect() || S.gg) return;
-  const ev = EVENTS[S.round];
-  S.gg = true; render();
-  const wrap = document.createElement('div');
-  wrap.id = 'ggwrap';
-  wrap.innerHTML = `<div class="ggbox"><div class="gghead"><b>🌱 GREENHOUSE GUARD</b><span>The base is paused</span><button id="ggleave">✕ Leave plants unprotected</button></div>
-    <iframe src="greenhouse-guard.html?embed=1&waves=${ev.sev >= 2 ? 2 : 1}&health=${Math.round(S.garden)}" title="Greenhouse Guard mini-game"></iframe></div>`;
-  document.body.appendChild(wrap);
-  $('#ggleave').onclick = () => closeGarden(null);
-  beep(620, 0.06, 'sine');
-}
-function closeGarden(result) {
-  const w = $('#ggwrap'); if (w) w.remove();
-  S.gg = false;
-  if (result) {
-    S.garden = Math.max(0, Math.min(100, result.health)); S.ggDone = true;
-    log(`Greenhouse protected! Garden health ${Math.round(S.garden)}%. The water shield covers it for the rest of this storm.`, 'good', true);
-  } else log('The plants are still exposed. Tap 🌱 PROTECT to go back.', 'warn');
+function startCut(type) {
+  $('#modal').classList.remove('show'); Learn.closeOverlay();
+  S.phase = 'cut'; S.cut = { type, t: 0, dur: type === 'launch' ? 8 : 26 };
+  if (type === 'launch') { SFX.play('launch'); SFX.say('Three. Two. One. Lift off! Next stop, the Moon.', 'capcom', true); }
+  else { SFX.play('aurora'); SFX.say('One more thing, Commander. The storm you just survived also reached Mars. The whole planet glowed with an aurora twenty five times brighter than any seen there before.', 'capcom', true); Learn.flash('aurora'); }
   render();
 }
-addEventListener('message', e => {
-  if (e.origin === location.origin && e.data && e.data.source === 'greenhouse-guard' && S.gg) closeGarden(e.data);
-});
+function endCut() {
+  if (!S.cut) return;
+  const type = S.cut.type; S.cut = null;
+  if (type === 'launch') { startRound(); setTimeout(() => Learn.flash('packing'), 4000); }
+  else endGame();
+}
 
 // ---------- pointer input on the scene ----------
-const cv = $('#scene'), g = cv.getContext('2d');
 const toWorld = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.height * H]; };
 const zoneAt = (x, y) => Object.keys(ZONES).find(k => { const z = ZONES[k]; return x >= z.x && x <= z.x + z.w && y >= z.y - 10 && y <= z.y + z.h + 10; });
-const crewAt = (x, y) => S.crew.find(c => !c.out && Math.abs(x - c.x) < 24 && y > c.y - 78 && y < c.y + 12);
-const fixAt = (x, y) => Object.keys(SYSTEMS).find(k => S.sys[k].broken && Math.hypot(x - SYSTEMS[k].at[0], y - SYSTEMS[k].at[1]) < 26);
+const crewAt = (x, y) => S.crew.find(c => !c.out && Math.abs(x - c.x) < 28 && y > c.y - 84 && y < c.y + 14);
+const fixAt = (x, y) => Object.keys(SYSTEMS).find(k => S.sys[k].broken && Math.hypot(x - SYSTEMS[k].at[0], y - SYSTEMS[k].at[1]) < 30);
 let downAt = null;
 
 cv.addEventListener('pointerdown', e => {
-  if (!playing()) return;
-  if (S.gg) return;
+  SFX.unlock();
+  if (S.cut) { if (S.cut.t > 1.2) endCut(); return; }
+  if (!playing() || frozen()) return;
   const [x, y] = toWorld(e), fk = fixAt(x, y), c = crewAt(x, y);
   if (fk) return openFix(fk);
-  if (canProtect() && Math.hypot(x - PROTECT_AT[0], y - PROTECT_AT[1]) < 30) return openGarden();
-  if (c) { S.drag = S.sel = c.id; S.ptr = [x, y]; downAt = [x, y]; cv.setPointerCapture(e.pointerId); }
+  if (canProtect() && Math.hypot(x - PROTECT_AT[0], y - PROTECT_AT[1]) < 34) return openGarden();
+  if (S.panelsDown && Math.hypot(x - REBOOT_AT[0], y - REBOOT_AT[1]) < 34) return openReboot();
+  if (c) { S.drag = S.sel = c.id; S.ptr = [x, y]; downAt = [x, y]; cv.setPointerCapture(e.pointerId); SFX.play('select'); }
   else { const z = zoneAt(x, y); if (z && S.sel) { orderMove(S.crew.find(c => c.id === S.sel), z); S.sel = null; } }
   render();
 });
@@ -760,268 +823,31 @@ cv.addEventListener('pointerup', e => {
   if (moved) { const z = zoneAt(x, y); if (z) orderMove(c, z); S.sel = null; }
   render();
 });
+cv.addEventListener('pointercancel', () => { S.drag = null; });
 
-// ---------- drawing ----------
-const stars = Array.from({ length: 140 }, () => [Math.random() * W, Math.random() * SURF, Math.random() * 1.4 + 0.3]);
-const rain = Array.from({ length: 110 }, () => ({ p: Math.random(), o: Math.random() * 1500 - 250, depth: Math.random() }));
-const rocks = Array.from({ length: 60 }, () => [Math.random() * W, SURF + 20 + Math.random() * (H - SURF - 20), 2 + Math.random() * 6]);
+// ---------- toolbar ----------
+$('#mute').onclick = () => { SFX.setMuted(!SFX.muted); $('#mute').textContent = SFX.muted ? '🔇' : '🔊'; };
+$('#pause').onclick = () => { if (!playing() || S.gg) return; S.paused = !S.paused; lastWalk = performance.now(); SFX.play('click'); if (S.paused) SFX.hush(); render(); };
+$('#call').onclick = callHome;
+$('#allShelter').onclick = () => { S.crew.forEach(c => orderMove(c, 'shelter', true)); SFX.play('drop'); log('Everybody to the shelter, go go go!', 'warn', 'cmd'); };
+$('#srcbadge').onclick = Learn.sources;
+$('#logbtn').onclick = Learn.logbook;
+$('#chips').innerHTML = Learn.chips(['radiation', 'dose', 'flare', 'microgravity', 'sol', 'delay']);
 
-function rr(x, y, w, h, r) { g.beginPath(); g.roundRect(x, y, w, h, r); }
-function circ(x, y, r) { g.beginPath(); g.arc(x, y, r, 0, 7); }
-function txt(s, x, y, size = 13, color = '#cfe6ff', align = 'left', font = 'Consolas, monospace') {
-  g.font = `bold ${size}px ${font}`; g.fillStyle = color; g.textAlign = align; g.fillText(s, x, y);
-}
-
-function drawSky(ts) {
-  const sky = g.createLinearGradient(0, 0, 0, SURF);
-  sky.addColorStop(0, '#02040a'); sky.addColorStop(1, S.phase === 'storm' ? '#2a0a12' : '#0a1424');
-  g.fillStyle = sky; g.fillRect(0, 0, W, SURF);
-  g.fillStyle = '#b9cfe8'; stars.forEach(([x, y, r]) => g.fillRect(x, y, r, r));
-  // Earth
-  circ(1090, 62, 22); g.fillStyle = '#2a6fd6'; g.fill();
-  g.save(); circ(1090, 62, 22); g.clip();
-  g.fillStyle = '#3fae6a'; circ(1082, 56, 9); g.fill(); circ(1100, 72, 7); g.fill();
-  g.fillStyle = 'rgba(2,4,10,.55)'; circ(1104, 62, 24); g.fill(); g.restore();
-  // Sun
-  const hot = S.phase === 'warning' || S.phase === 'storm';
-  const R = 120 + (hot ? 45 : 0) + Math.sin(ts / 280) * 8;
-  const sg = g.createRadialGradient(60, 50, 8, 60, 50, R);
-  sg.addColorStop(0, '#fffbe0'); sg.addColorStop(0.3, hot ? '#ff7a1f' : '#ffc23d'); sg.addColorStop(1, 'rgba(255,120,30,0)');
-  g.fillStyle = sg; g.fillRect(0, 0, 300, SURF);
-  // storm front racing toward the base
-  if (S.phase === 'warning') {
-    const p = 1 - S.t / S.dur;
-    g.lineWidth = 5;
-    for (let i = 0; i < 4; i++) {
-      g.strokeStyle = `rgba(255,${110 + i * 20},60,${0.9 - i * 0.2})`;
-      g.beginPath(); g.arc(60, 50, Math.max(1, 40 + p * 600 - i * 22), -0.15, 1.1); g.stroke();
-    }
-  }
-}
-
-function drawGround() {
-  const gr = g.createLinearGradient(0, SURF, 0, H);
-  gr.addColorStop(0, '#5b5f68'); gr.addColorStop(0.08, '#3a3d45'); gr.addColorStop(1, '#1d1f25');
-  g.fillStyle = gr; g.fillRect(0, SURF, W, H - SURF);
-  g.fillStyle = 'rgba(0,0,0,.22)'; rocks.forEach(([x, y, r]) => { circ(x, y, r); g.fill(); });
-  g.fillStyle = '#8a8f99'; g.fillRect(0, SURF - 2, W, 4);
-  // craters on the surface
-  g.fillStyle = '#4a4e57'; [[60, 30], [470, 22], [1150, 36]].forEach(([x, w]) => { g.beginPath(); g.ellipse(x, SURF + 3, w, 5, 0, 0, 7); g.fill(); });
-}
-
-function drawSurface(ts) {
-  // rover + sample rocks (where EVA crew work)
-  g.fillStyle = '#c9d2dc'; rr(62, 222, 46, 16, 4); g.fill();
-  g.fillStyle = '#37d6ff'; g.fillRect(70, 212, 18, 10);
-  g.fillStyle = '#2b2f36'; circ(72, 242, 8); g.fill(); circ(98, 242, 8); g.fill();
-  g.fillStyle = '#767b85'; [[180, 6], [262, 8], [345, 5], [430, 7]].forEach(([x, r]) => { circ(x, SURF - r + 2, r); g.fill(); });
-  // airlock dome over the shaft
-  g.fillStyle = '#aab4c0'; g.beginPath(); g.arc(SHAFT, SURF, 34, Math.PI, 0); g.fill();
-  g.fillStyle = '#0d1726'; rr(SHAFT - 12, SURF - 26, 24, 26, 4); g.fill();
-  // solar panels: tilted to the Sun, folded flat in a storm
-  const fold = S.phase === 'storm';
-  [760, 860, 960, 1060].forEach(x => {
-    g.strokeStyle = '#9aa4b0'; g.lineWidth = 4; g.beginPath(); g.moveTo(x, SURF); g.lineTo(x, SURF - (fold ? 10 : 34)); g.stroke();
-    g.save(); g.translate(x, SURF - (fold ? 10 : 34)); g.rotate(fold ? 0 : -0.5);
-    g.fillStyle = fold ? '#27384f' : '#2f6fd0'; g.fillRect(-38, -4, 76, 8);
-    g.strokeStyle = '#9fc4ff'; g.lineWidth = 1; for (let i = -38; i <= 38; i += 19) { g.beginPath(); g.moveTo(i, -4); g.lineTo(i, 4); g.stroke(); }
-    g.restore();
-  });
-  txt(fold ? 'SOLAR PANELS FOLDED' : 'SOLAR PANELS', 910, SURF - 62, 11, fold ? '#ff9aa4' : '#6f8bab', 'center');
-}
-
-function drawRoom(k, ts) {
-  const z = ZONES[k], storm = S.phase === 'storm', sh = lvl('shield');
-  const hover = S.drag && S.ptr && zoneAt(S.ptr[0], S.ptr[1]) === k;
-  if (sh) { g.shadowColor = '#37d6ff'; g.shadowBlur = 8 + sh * 8; }
-  rr(z.x, z.y, z.w, z.h, 14);
-  g.fillStyle = k === 'shelter' ? '#12283a' : '#16202e'; g.fill();
-  g.shadowBlur = 0;
-  g.lineWidth = k === 'shelter' ? 9 : 4;
-  g.strokeStyle = hover ? '#ffffff' : sh ? '#37d6ff' : k === 'shelter' ? '#3f8f66' : '#52607a'; g.stroke();
-  g.fillStyle = '#2a3446'; g.fillRect(z.x + 6, z.floor, z.w - 12, 6);
-  txt(z.name, z.x + 14, z.y + 22, 13, '#cfe6ff');
-  txt(z.tag, z.x + z.w - 14, z.y + 22, 11, k === 'shelter' ? '#4be38a' : '#6f8bab', 'right');
-}
-
-function drawMachines(ts) {
-  const T = S.tanks, blink = Math.sin(ts / 90) > 0;
-  // greenhouse: grow lights + plants that grow with the food supply
-  const gz = ZONES.green, lit = lvl('farm');
-  g.fillStyle = lit ? `rgba(200,110,255,${0.25 + lit * 0.2})` : '#222a38'; g.fillRect(gz.x + 40, gz.y + 34, gz.w - 80, 6);
-  if (lit) { const lg = g.createLinearGradient(0, gz.y + 40, 0, gz.floor); lg.addColorStop(0, `rgba(200,110,255,${0.08 * lit})`); lg.addColorStop(1, 'rgba(200,110,255,0)'); g.fillStyle = lg; g.fillRect(gz.x + 40, gz.y + 40, gz.w - 80, 90); }
-  for (let i = 0; i < 7; i++) {
-    const px = gz.x + 45 + i * 44, hgt = 8 + pct('food') * 0.42;
-    g.fillStyle = '#5a4634'; g.fillRect(px - 12, gz.floor - 8, 24, 8);
-    g.strokeStyle = S.garden < 40 ? '#8a6a3a' : S.garden < 70 || pct('food') < 25 ? '#9a8f3a' : '#4be38a'; g.lineWidth = 3;
-    g.beginPath(); g.moveTo(px, gz.floor - 8); g.lineTo(px + Math.sin(ts / 700 + i) * 2, gz.floor - 8 - hgt); g.stroke();
-    g.fillStyle = g.strokeStyle; g.beginPath(); g.ellipse(px - 6, gz.floor - 8 - hgt * 0.6, 7, 3, -0.5, 0, 7); g.fill();
-    g.beginPath(); g.ellipse(px + 6, gz.floor - 8 - hgt * 0.85, 7, 3, 0.5, 0, 7); g.fill();
-  }
-  txt(`GARDEN ${Math.round(S.garden)}%`, gz.x + 14, gz.y + 40, 11, S.garden < 40 ? '#ff9aa4' : S.garden < 70 ? '#ffb938' : '#4be38a');
-  if (canProtect()) {
-    const [x, y] = PROTECT_AT;
-    circ(x, y, 22 + Math.sin(ts / 120) * 3); g.fillStyle = '#1f9d5a'; g.fill(); g.lineWidth = 2; g.strokeStyle = '#fff'; g.stroke();
-    txt('🌱', x, y + 7, 20, '#fff', 'center', 'sans-serif');
-    txt('PROTECT', x, y + 40, 11, '#9dffc1', 'center');
-  }
-  // workshop: oxygen and water tanks double as supply gauges
-  [['o2', 715, '#9fe8ff', 'O₂'], ['h2o', 885, '#3d8bff', 'H₂O']].forEach(([k, x, col, label]) => {
-    const y0 = 335, hh = 80, v = pct(k) / 100, dead = S.sys[k].broken;
-    g.fillStyle = '#0a1220'; rr(x - 24, y0, 48, hh, 10); g.fill();
-    g.save(); rr(x - 24, y0, 48, hh, 10); g.clip();
-    g.fillStyle = v < 0.25 ? '#ff4d5e' : col; g.globalAlpha = dead ? 0.35 : 0.85; g.fillRect(x - 24, y0 + hh * (1 - v), 48, hh * v);
-    g.restore(); g.globalAlpha = 1;
-    g.lineWidth = 3; g.strokeStyle = dead ? (blink ? '#ff4d5e' : '#5a1f28') : '#8fa3bd'; rr(x - 24, y0, 48, hh, 10); g.stroke();
-    txt(label, x, y0 + hh / 2 + 5, 14, '#06101c', 'center');
-  });
-  // shield pump on top of the shelter
-  const sh = lvl('shield');
-  g.fillStyle = sh ? '#37d6ff' : '#3a4558'; rr(SHAFT - 44, 458, 26, 14, 4); g.fill(); rr(SHAFT + 18, 458, 26, 14, 4); g.fill();
-  // broken: sparks + FIX bubble
-  for (const k in SYSTEMS) if (S.sys[k].broken) {
-    const [x, y] = SYSTEMS[k].at;
-    g.strokeStyle = '#ffe36b'; g.lineWidth = 2;
-    for (let i = 0; i < 5; i++) { const a = Math.random() * 7, r = 18 + Math.random() * 22; g.beginPath(); g.moveTo(x + Math.cos(a) * 14, y + Math.sin(a) * 14); g.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); g.stroke(); }
-    circ(x, y, 18 + Math.sin(ts / 120) * 3); g.fillStyle = '#ff4d5e'; g.fill(); g.lineWidth = 2; g.strokeStyle = '#fff'; g.stroke();
-    txt('🔧', x, y + 6, 17, '#fff', 'center', 'sans-serif');
-    txt('FIX', x, y + 36, 11, '#ff9aa4', 'center');
-  }
-}
-
-function drawShaft() {
-  g.fillStyle = '#16202e'; g.fillRect(SHAFT - 18, SURF, 36, 222);
-  g.strokeStyle = '#52607a'; g.lineWidth = 3; g.strokeRect(SHAFT - 18, SURF, 36, 222);
-  g.strokeStyle = '#8fa3bd'; g.lineWidth = 2;
-  g.beginPath(); g.moveTo(SHAFT - 8, SURF); g.lineTo(SHAFT - 8, 590); g.moveTo(SHAFT + 8, SURF); g.lineTo(SHAFT + 8, 590); g.stroke();
-  for (let y = SURF + 10; y < 590; y += 14) { g.beginPath(); g.moveTo(SHAFT - 8, y); g.lineTo(SHAFT + 8, y); g.stroke(); }
-  // doorways into the two side rooms
-  g.fillStyle = '#16202e'; g.fillRect(SHAFT - 24, 380, 48, 42);
-}
-
-function drawAstro(c, x, y, ts, alpha = 1) {
-  const walking = c.path.length && alpha === 1, climbing = walking && Math.abs(c.x - SHAFT) < 1 && c.path[0][0] === SHAFT;
-  const sw = walking ? Math.sin(ts / 80) * 6 : 0;
-  g.save(); g.globalAlpha = alpha;
-  if (S.sel === c.id && alpha === 1) { g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.ellipse(x, y + 2, 20, 6, 0, 0, 7); g.stroke(); }
-  g.strokeStyle = '#dfe6ee'; g.lineWidth = 6; g.lineCap = 'round';
-  g.beginPath(); g.moveTo(x - 5, y - 16); g.lineTo(x - 5 - (climbing ? 0 : sw), y - (climbing ? Math.max(0, sw) : 0));
-  g.moveTo(x + 5, y - 16); g.lineTo(x + 5 + (climbing ? 0 : sw), y - (climbing ? Math.max(0, -sw) : 0)); g.stroke();
-  g.fillStyle = '#9aa7b6'; rr(x + (c.dir > 0 ? -17 : 9), y - 40, 8, 20, 3); g.fill();  // backpack
-  g.fillStyle = '#eef3f8'; rr(x - 10, y - 40, 20, 26, 6); g.fill();
-  // role sash across the chest + emblem badge
-  g.save(); rr(x - 10, y - 40, 20, 26, 6); g.clip();
-  const sx = c.dir > 0 ? 1 : -1;
-  if (c.edge) { g.strokeStyle = c.edge; g.lineWidth = 7; g.beginPath(); g.moveTo(x - 11 * sx, y - 41); g.lineTo(x + 11 * sx, y - 17); g.stroke(); }
-  g.strokeStyle = c.sash || c.color; g.lineWidth = 5; g.beginPath(); g.moveTo(x - 11 * sx, y - 41); g.lineTo(x + 11 * sx, y - 17); g.stroke();
-  g.restore();
-  drawEmblem(c, x + 4.5 * sx, y - 34);
-  g.strokeStyle = '#eef3f8'; g.lineWidth = 5;
-  g.beginPath(); g.moveTo(x - 9, y - 34); g.lineTo(x - 14 + sw * 0.6, y - 20); g.moveTo(x + 9, y - 34); g.lineTo(x + 14 - sw * 0.6, y - 20); g.stroke();
-  if (S.meet && S.meet.c === c && alpha === 1) {
-    // crew introduction: helmet off, showing the photo or drawn portrait
-    const h = headFor(c);
-    g.save(); circ(x, y - 51, 13); g.fillStyle = '#0a1424'; g.fill(); g.clip();
-    if (h.img.complete && h.img.naturalWidth) {
-      g.imageSmoothingEnabled = !h.photo;
-      const w = h.img.naturalWidth;
-      if (h.photo) g.drawImage(h.img, x - 13, y - 64, 26, 26);
-      else g.drawImage(h.img, w * 14 / 64, w * 10 / 64, w * 36 / 64, w * 36 / 64, x - 13, y - 64, 26, 26);
-    }
-    g.restore(); g.imageSmoothingEnabled = true;
-    g.strokeStyle = c.color; g.lineWidth = 1.5; circ(x, y - 51, 13); g.stroke();
-    g.fillStyle = '#c9d2dc'; rr(x - 9, y - 40, 18, 4, 2); g.fill();   // suit neck ring
-  } else {
-    circ(x, y - 50, 12); g.fillStyle = '#eef3f8'; g.fill();
-    // visor: the face shows through, then a tinted glass reflection
-    const vx = x + c.dir * 3, L = c.look;
-    g.fillStyle = '#16263a'; g.beginPath(); g.ellipse(vx, y - 50, 7, 6, 0, 0, 7); g.fill();
-    g.save(); g.beginPath(); g.ellipse(vx, y - 50, 7, 6, 0, 0, 7); g.clip();
-    if (L.hair === 'hijab') { g.fillStyle = L.hairColor; g.fillRect(vx - 7, y - 56, 14, 12); }
-    else { g.fillStyle = L.hairColor; g.fillRect(vx - 7, y - 57, 14, 4); }
-    g.fillStyle = L.skin; g.beginPath(); g.ellipse(vx + c.dir * 1, y - 49, 4.6, 4.8, 0, 0, 7); g.fill();
-    g.fillStyle = 'rgba(30,60,95,.35)'; g.fillRect(vx - 7, y - 56, 14, 12);
-    g.restore();
-    g.fillStyle = 'rgba(255,255,255,.75)'; circ(vx + c.dir * 4, y - 53, 1.3); g.fill();
-  }
-  g.lineCap = 'butt';
-  if (alpha === 1 && !(S.meet && S.meet.c === c)) {
-    txt(c.name, x, y - 70, 12, c.color, 'center', '"Segoe UI", sans-serif');
-    g.fillStyle = '#081120'; g.fillRect(x - 16, y - 66, 32, 4);
-    g.fillStyle = c.dose > 60 ? '#ff4d5e' : '#ffb938'; g.fillRect(x - 16, y - 66, 32 * Math.min(1, c.dose / 100), 4);
-  }
-  g.restore();
-}
-
-function drawEmblem(c, x, y) {
-  g.fillStyle = '#0d1726'; circ(x, y, 4.2); g.fill();
-  if (c.emblem === 'leaf') { g.fillStyle = '#4be38a'; g.beginPath(); g.ellipse(x, y, 2.6, 1.4, -0.7, 0, 7); g.fill(); }
-  else if (c.emblem === 'bearing') {   // ball bearing: outer ring, inner ring, balls between
-    g.strokeStyle = '#c9d4e0'; g.lineWidth = 0.9; circ(x, y, 3.3); g.stroke(); circ(x, y, 1.1); g.stroke();
-    g.fillStyle = '#eef3f8'; for (let a = 0; a < 6; a++) { circ(x + Math.cos(a * Math.PI / 3) * 2.2, y + Math.sin(a * Math.PI / 3) * 2.2, 0.55); g.fill(); }
-  }
-  else if (c.emblem === 'rock') { g.fillStyle = '#b3a596'; g.beginPath(); g.moveTo(x - 2.6, y + 1.8); g.lineTo(x - 1.8, y - 1.2); g.lineTo(x + 0.6, y - 2.2); g.lineTo(x + 2.6, y + 1.8); g.fill(); }
-  else { g.fillStyle = c.color; g.beginPath(); for (let i = 0; i < 10; i++) { const r = i % 2 ? 1.2 : 2.8, a = -Math.PI / 2 + i * Math.PI / 5; g.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); } g.fill(); }
-}
-
-function drawStorm(ts, dt) {
-  if (S.phase !== 'storm') return;
-  const k = Math.min(1, S.I / 5), sh = lvl('shield');
-  g.lineWidth = 2;
-  rain.forEach(r => {
-    r.p += dt * (0.9 + r.depth * 0.5); if (r.p > 1) { r.p = 0; r.o = Math.random() * 1500 - 250; r.depth = Math.random(); }
-    // streaks fall from the Sun's side; most stop in the first metres of soil, few reach the deep shelter
-    const maxY = SURF + r.depth * r.depth * 330 * (1 - sh * 0.15), y = r.p * (H + 60) - 40;
-    if (y > maxY) return;
-    const x = r.o + y * 0.55, a = (y < SURF ? 0.75 : 0.75 * (1 - (y - SURF) / (maxY - SURF + 1))) * (0.3 + k * 0.7);
-    g.strokeStyle = `rgba(255,95,80,${a})`; g.beginPath(); g.moveTo(x, y); g.lineTo(x - 12, y - 22); g.stroke();
-  });
-  g.fillStyle = `rgba(255,30,50,${0.06 + k * 0.1 * (0.6 + 0.4 * Math.sin(ts / 150))})`; g.fillRect(0, 0, W, H);
-}
-
-// Crew walk on a real-time clock, called from both the draw loop and the game tick,
-// so they keep moving at full speed even if the browser slows down drawing.
-let lastWalk = performance.now();
-function walkClock() {
-  const now = performance.now(), dt = Math.min(1, (now - lastWalk) / 1000); lastWalk = now;
-  if (playing() && !S.gg) stepCrew(dt * SPEED);
-}
-
-let lastTs = 0;
-function draw(ts) {
-  const dt = Math.min(0.1, (ts - lastTs) / 1000) || 0; lastTs = ts;
-  walkClock();
-  // camera: eases toward its target (used by the crew introduction)
-  const cam = S.cam, ease = 1 - Math.pow(0.03, dt);
-  for (const k of ['z', 'x', 'y']) cam[k] += (cam.to[k] - cam[k]) * ease;
-  const cx = Math.max(W / 2 / cam.z, Math.min(W - W / 2 / cam.z, cam.x)), cy = Math.max(H / 2 / cam.z, Math.min(H - H / 2 / cam.z, cam.y));
-  g.setTransform(2 * cam.z, 0, 0, 2 * cam.z, 2 * (W / 2 - cam.z * cx), 2 * (H / 2 - cam.z * cy));
-  if (S.shake > 0) { S.shake -= dt; g.translate((Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10); }
-  drawSky(ts); drawGround(); drawSurface(ts); drawShaft();
-  ['green', 'work', 'shelter'].forEach(k => drawRoom(k, ts));
-  if (S.drag && S.ptr && zoneAt(S.ptr[0], S.ptr[1]) === 'eva') { g.strokeStyle = '#fff'; g.lineWidth = 2; g.setLineDash([8, 6]); rr(34, 120, 512, 128, 12); g.stroke(); g.setLineDash([]); }
-  txt('MOON SURFACE', 44, 142, 13, '#cfe6ff'); txt('no protection', 44, 158, 11, '#ffb938');
-  drawMachines(ts);
-  S.crew.filter(c => !c.out).sort((a, b) => a.y - b.y).forEach(c => drawAstro(c, c.x, c.y, ts));
-  drawStorm(ts, dt);
-  // dragged astronaut ghost
-  if (S.drag && S.ptr) drawAstro(S.crew.find(c => c.id === S.drag), S.ptr[0], S.ptr[1] + 30, ts, 0.6);
-  // floating texts
-  S.fx = S.fx.filter(f => (f.t -= dt) > 0);
-  S.fx.forEach(f => { g.globalAlpha = Math.min(1, f.t); txt(f.text, f.x, f.y - (1.5 - f.t) * 22, 15, f.color, 'center'); g.globalAlpha = 1; });
-  // radiation meter
-  txt('RADIATION', 1040, 112, 11, '#6f8bab', 'right'); g.fillStyle = '#081120'; g.fillRect(1048, 102, 120, 11);
-  g.fillStyle = '#ff4d5e'; g.fillRect(1048, 102, 120 * Math.min(1, S.I / 7.2), 11);
-  // big phase banner
-  if (S.banner && (S.banner.t -= dt) > 0) {
-    g.globalAlpha = Math.min(1, S.banner.t);
-    txt(S.banner.text, W / 2, 200, 54, S.phase === 'storm' ? '#ff4d5e' : S.phase === 'warning' ? '#ffb938' : '#4be38a', 'center');
-    g.globalAlpha = 1;
-  }
-  requestAnimationFrame(draw);
-}
-
-$('#mute').onclick = () => { muted = !muted; $('#mute').textContent = muted ? '🔇' : '🔊'; if (muted && window.speechSynthesis) speechSynthesis.cancel(); };
+// Outside readout: real conditions at the lunar south pole, one line at a time.
+const OUTSIDE = [
+  '🌡️ Shadowed craters here are colder than −200 °C (NASA LRO Diviner)',
+  '☢️ Background radiation outside: about 1.4 mSv every day (Chang\'e-4 LND)',
+  '📡 Radio delay to Earth: 1.3 seconds each way (NASA Deep Space Network)',
+  '☀️ Nearby ridges are sunlit most of the year: great for solar panels (NASA LRO)',
+  '🪶 Gravity here is one sixth of Earth\'s: a 30 kg kid weighs like 5 kg',
+  '💨 No air outside: sound cannot travel and the sky is always black',
+  '🔴 On Mars, a day is called a sol: 24 hours 39 minutes',
+];
+let outsideI = 0;
+const tickOutside = () => { const el = $('#outside'); el.classList.remove('in'); void el.offsetWidth; el.textContent = OUTSIDE[outsideI++ % OUTSIDE.length]; el.classList.add('in'); };
+tickOutside(); setInterval(tickOutside, 7000);
+document.addEventListener('visibilitychange', () => { if (document.hidden && playing() && !S.gg && !S.paused) { S.paused = true; SFX.hush(); render(); } });
 
 newGame();
 intro();

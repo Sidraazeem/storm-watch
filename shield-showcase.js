@@ -55,12 +55,14 @@
       }
     }catch{}
   }
+  const EMBED=new URLSearchParams(location.search).has('embed');
+  const tell=ok=>{try{parent.postMessage({source:'solar-reboot',ok},location.origin);}catch{}};
   function play(){
     cleanup();
     const host=document.querySelector('#easy');
     const state=ShieldRepair.start({host,demo:true,solar:true,sound:tone,
       event:{cls:'X8.2',date:'September 10, 2017',mins:19,sepInst:'GOES13: SEM/EPS >100 MeV',fromNasa:false,link:'https://ccmc.gsfc.nasa.gov/DONKI/view/FLR/13098/-1'},
-      onComplete:play,onExit:play});
+      onComplete:EMBED?()=>tell(true):play,onExit:EMBED?()=>tell(false):play});
     host.classList.add('se-card');
     host.querySelector('.sr-eyebrow').textContent='EASY VERSION · SIX WIRE TILES';
     const layout=document.createElement('div');layout.className='se-layout';

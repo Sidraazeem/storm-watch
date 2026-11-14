@@ -1,0 +1,172 @@
+// STORM WATCH: the learning layer. Plain-language glossary chips, collectible fact cards,
+// debrief quiz questions, the Cadet Logbook (saved on this device) and the NASA data sources panel.
+const Learn = (() => {
+  // ---------- words explained for ages 7-12 ----------
+  const GLOSSARY = {
+    radiation:    ['Radiation', 'Invisible energy that zooms through space. A tiny bit is normal. A lot at once can make people sick, so astronauts hide from it.'],
+    dose:         ['Radiation dose (mSv)', 'How much radiation a body has soaked up. It is counted in millisieverts, written mSv. One chest X-ray is about 0.1 mSv.'],
+    flare:        ['Solar flare', 'A giant flash of energy on the Sun. Flares get a letter: A, B, C, M or X. Each letter is 10 times stronger than the one before. X is the biggest.'],
+    cme:          ['CME', 'Short for coronal mass ejection: a huge cloud of hot gas that the Sun throws out into space, sometimes faster than 2,000 km every second.'],
+    sep:          ['Solar particles (SEP)', 'Super-fast bits of atoms shot out by a solar storm. They are the dangerous part: the radiation storm.'],
+    microgravity: ['Microgravity', 'When everything floats, like on the Space Station. Bones and muscles get weaker because they do not have to work. On the Moon you weigh one sixth of what you do on Earth.'],
+    sol:          ['Sol', 'One day on Mars. A sol is 24 hours and 39 minutes, a little longer than an Earth day.'],
+    kw:           ['Kilowatt (kW)', 'A way to count electric power. One kilowatt runs about ten bright light bulbs. Your base only makes a few, so you have to share.'],
+    regolith:     ['Regolith', 'The dusty, rocky soil that covers the Moon. Piled on top of a base, it works as a radiation shield.'],
+    delay:        ['Signal delay', 'Radio travels at the speed of light, but space is big. A message takes about 1.3 seconds to reach the Moon and 4 to 24 minutes to reach Mars.'],
+  };
+
+  // ---------- collectible fact cards ----------
+  // src = where the fact comes from; shown on the card so players know it is real.
+  const CARDS = {
+    shelter:  { icon: '🛡️', title: 'Dirt makes a great shield', text: 'Your Storm Shelter is deep under Moon soil. Thick layers of rock and soil soak up radiation before it reaches the crew.', src: 'NASA space radiation guidance' },
+    outside:  { icon: '☢️', title: 'Nowhere to hide outside', text: 'Earth has thick air and a magnetic field that block most space radiation. The Moon has neither, so an astronaut outside gets the full storm.', src: 'NASA Heliophysics' },
+    zap:      { icon: '⚡', title: 'Storms zap machines too', text: 'Fast solar particles can knock out electronics. Real spacecraft switch to a "safe mode" during big storms, just like your solar panels fold.', src: 'NASA CCMC space weather' },
+    water:    { icon: '💧', title: 'Air made from water', text: 'The Space Station makes oxygen by splitting water with electricity. Your base does the same, so no water means no air.', src: 'NASA ISS Oxygen Generation System' },
+    oxygen:   { icon: '💨', title: '0.84 kg of oxygen a day', text: 'Each astronaut breathes about 0.84 kg of oxygen every day. With four crew that is more than 3 kg a day, every day.', src: 'NASA Life Support BVAD' },
+    salad:    { icon: '🥬', title: 'Space salad is real', text: 'In 2015 astronauts on the Space Station grew red romaine lettuce and ate it. Fresh food keeps a crew healthy and happy.', src: 'NASA Veggie experiment' },
+    delay:    { icon: '📡', title: '1.3 seconds to the Moon', text: 'Your call to Mission Control took 2.6 seconds: 1.3 there and 1.3 back. On Mars the same call can take up to 24 minutes each way, so Mars crews must decide on their own.', src: 'NASA Deep Space Network' },
+    backgnd:  { icon: '🌙', title: 'Radiation never stops', text: 'Even on a calm day the Moon\'s surface gets about 1.4 mSv of radiation every day. That is roughly what you get on Earth in half a year.', src: 'Chang\'e-4 lander LND instrument, 2020' },
+    vest:     { icon: '🦺', title: 'A vest for space radiation', text: 'On Artemis I in 2022, two test dummies named Helga and Zohar flew around the Moon to measure radiation. Zohar wore a radiation vest called AstroRad.', src: 'NASA Artemis I, MARE experiment' },
+    bones:    { icon: '🦴', title: 'Bones get weaker in space', text: 'Without gravity pulling on them, astronauts can lose 1 to 1.5 percent of their bone strength every month. Scientists study this with mice that flew in space.', src: 'NASA OSDR studies OSD-417 and OSD-342', link: 'https://osdr.nasa.gov/bio/repo/data/studies/OSD-417' },
+    cells:    { icon: '🧬', title: 'What radiation does to cells', text: 'Radiation can break the tiny instructions (DNA) inside our cells. Scientists zap human cells in the lab to learn how the body repairs itself.', src: 'NASA OSDR study OSD-2', link: 'https://osdr.nasa.gov/bio/repo/data/studies/OSD-2' },
+    aurora:   { icon: '🌌', title: 'A planet-wide aurora on Mars', text: 'The September 2017 storm lit up Mars with an aurora 25 times brighter than any seen there before. On the ground, the Curiosity rover measured radiation double the normal level.', src: 'NASA MAVEN and Curiosity RAD' },
+    gannon:   { icon: '🌍', title: 'Auroras almost everywhere', text: 'The May 2024 storm was the strongest at Earth in over 20 years. People saw the northern lights much farther south than usual.', src: 'NASA / NOAA, May 2024' },
+    cold:     { icon: '🥶', title: 'Colder than minus 200', text: 'Some craters near the Moon\'s south pole never see the Sun. They are colder than -200 °C, among the coldest places ever measured in the solar system.', src: 'NASA LRO Diviner instrument' },
+    apollo:   { icon: '🚀', title: 'The Apollo near miss', text: 'In August 1972 a huge solar storm hit between the Apollo 16 and Apollo 17 Moon missions. Astronauts on the Moon then could have become very sick.', src: 'NASA history' },
+    sunlight: { icon: '☀️', title: 'Almost endless sunshine', text: 'Some ridges near the Moon\'s south pole are sunlit most of the year. That makes them great spots for solar panels, and a reason crews want to live there.', src: 'NASA LRO / Moon Trek illumination maps' },
+    classes:  { icon: '🔥', title: 'A, B, C, M, X', text: 'Solar flares are sorted by letter. Each step is 10 times stronger, so an X flare is 100 times stronger than a C flare.', src: 'NASA / NOAA flare scale' },
+    speed:    { icon: '💨', title: 'Light first, particles later', text: 'A flare\'s light reaches us in 8 minutes. The fastest particles follow in under an hour. The big gas cloud can take one to three days.', src: 'NASA CCMC DONKI' },
+    packing:  { icon: '🎒', title: 'Every kilogram counts', text: 'Rockets can only lift so much. Mission planners choose every item with care, because bringing more of one thing means less of another.', src: 'NASA mission planning' },
+  };
+
+  // ---------- NASA data used, shown inside the game ----------
+  const SOURCES = [
+    ['NASA CCMC DONKI', 'Every storm in the game: flare class, time, sunspot region, particle arrival and CME speed. Loaded live when you start.', 'https://ccmc.gsfc.nasa.gov/tools/DONKI/'],
+    ['NASA Life Support BVAD', 'How much oxygen, water and food each astronaut uses per day (NASA/TP-2015-218570 Rev 2).', 'https://ntrs.nasa.gov/citations/20210024855'],
+    ['NASA Open Science Data Repository (OSDR)', 'Bone-loss and radiation biology studies behind the Bio-Telemetry alerts: OSD-417, OSD-342 and OSD-2.', 'https://osdr.nasa.gov/bio/repo/search'],
+    ['NASA MAVEN and Curiosity RAD', 'The Mars aurora and doubled surface radiation from the September 2017 storm.', 'https://science.nasa.gov/mission/maven/'],
+    ['NASA LRO (Diviner, Moon Trek)', 'South-pole temperatures and sunlight used in the Outside readout.', 'https://trek.nasa.gov/moon/'],
+    ['NASA Artemis I (MARE)', 'The radiation vest you can pack was tested on the Artemis I flight in 2022.', 'https://www.nasa.gov/mission/artemis-i/'],
+    ['NASA Deep Space Network', 'Signal delay for the Call Mission Control button: about 1.3 seconds each way to the Moon.', 'https://www.nasa.gov/communicating-with-missions/dsn/'],
+    ['Chang\'e-4 LND (CNSA / Kiel University)', 'Background radiation on the Moon\'s surface, about 1.4 mSv per day. Not a NASA source.', 'https://www.science.org/doi/10.1126/sciadv.aaz1334'],
+    ['NASA SDO imagery', 'Real Sun pictures and video inside the mini-games.', 'https://svs.gsfc.nasa.gov/12706'],
+  ];
+
+  const BADGES = {
+    first:   ['🚀', 'First Storm', 'Finish your first storm'],
+    safe:    ['🧑‍🚀', 'Everyone Home', 'Finish a mission with all four crew'],
+    quiz:    ['🧠', 'Quiz Whiz', 'Answer every debrief question correctly in one mission'],
+    garden:  ['🌱', 'Garden Hero', 'End a mission with the garden above 80%'],
+    fixer:   ['🔧', 'Fix-It Pro', 'Repair five machines in one mission'],
+    facts10: ['📚', 'Fact Finder', 'Collect 10 fact cards'],
+    factsAll:['🏅', 'Space Scholar', 'Collect every fact card'],
+    director:['⭐', 'Flight Director', 'Earn the top rating'],
+  };
+
+  // ---------- saved progress (this device only) ----------
+  let log = { cards: [], badges: [], best: 0, plays: 0 };
+  try { log = { ...log, ...JSON.parse(localStorage.getItem('stormwatch.log') || '{}') }; } catch (e) {}
+  const save = () => { try { localStorage.setItem('stormwatch.log', JSON.stringify(log)); } catch (e) {} };
+
+  // ---------- small overlay for glossary / logbook / sources (does not disturb the game card) ----------
+  const el = (html, cls) => { const d = document.createElement('div'); d.className = cls; d.innerHTML = html; return d; };
+  function overlay(html, onClose) {
+    closeOverlay();
+    const o = el(`<div class="infobox">${html}<button class="go" id="infoClose">Got it ▶</button></div>`, 'info show');
+    o.id = 'info'; document.body.appendChild(o);
+    const close = () => { o.remove(); onClose && onClose(); };
+    o.querySelector('#infoClose').onclick = close;
+    o.onclick = e => { if (e.target === o) close(); };
+    SFX.play('card');
+  }
+  function closeOverlay() { const o = document.getElementById('info'); if (o) o.remove(); }
+
+  function explain(term) {
+    const g = GLOSSARY[term]; if (!g) return;
+    overlay(`<h2>${g[0]}</h2><p class="big">${g[1]}</p>`);
+    SFX.say(g[1], 'base', true);
+  }
+  // glowing "?" chips: tap one to get a term explained
+  const chip = (term, label) => `<button class="jchip" data-term="${term}" title="What does this mean?">${label || GLOSSARY[term][0]} <i>?</i></button>`;
+  const chips = terms => terms.map(t => chip(t)).join('');
+  document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('.jchip'); if (b) { e.stopPropagation(); explain(b.dataset.term); } });
+
+  // ---------- fact cards: pop up after something happens, then live in the Logbook ----------
+  let toastTimer, pending = [];
+  function flash(id, good = true) {
+    const c = CARDS[id]; if (!c) return false;
+    const isNew = !log.cards.includes(id);
+    if (isNew) { log.cards.push(id); save(); checkFactBadges(); }
+    else if (Math.random() < 0.6) return false;       // already collected: only show it again sometimes
+    pending.push({ id, good, isNew }); showNext();
+    return isNew;
+  }
+  function showNext() {
+    if (document.getElementById('fact') || !pending.length) return;
+    const { id, good, isNew } = pending.shift(), c = CARDS[id];
+    const t = el(`<div class="ficon">${c.icon}</div><div class="fbody"><small>${isNew ? '★ NEW FACT CARD' : 'FACT CARD'} · ${log.cards.length}/${Object.keys(CARDS).length}</small>
+      <b>${c.title}</b><p>${c.text}</p><em>Source: ${c.src}</em></div><button aria-label="Close">✕</button>`, 'fact ' + (good ? 'good' : 'bad'));
+    t.id = 'fact'; document.body.appendChild(t);
+    const close = () => { clearTimeout(toastTimer); t.remove(); setTimeout(showNext, 300); };
+    t.querySelector('button').onclick = close;
+    toastTimer = setTimeout(close, 11000);
+    SFX.play(isNew ? 'badge' : 'card');
+  }
+
+  function award(id) {
+    if (log.badges.includes(id) || !BADGES[id]) return false;
+    log.badges.push(id); save(); return true;
+  }
+  function checkFactBadges() {
+    if (log.cards.length >= 10) award('facts10');
+    if (log.cards.length >= Object.keys(CARDS).length) award('factsAll');
+  }
+
+  function logbook() {
+    const total = Object.keys(CARDS).length;
+    overlay(`<h2>CADET LOGBOOK</h2>
+      <p>Fact cards: <b>${log.cards.length} / ${total}</b> · Missions flown: <b>${log.plays}</b> · Best score: <b>${log.best}</b></p>
+      <div class="badges">${Object.entries(BADGES).map(([k, b]) => `<div class="${log.badges.includes(k) ? 'got' : ''}" title="${b[2]}"><span>${b[0]}</span><b>${b[1]}</b><small>${b[2]}</small></div>`).join('')}</div>
+      <div class="cards">${Object.entries(CARDS).map(([k, c]) => log.cards.includes(k)
+        ? `<details><summary>${c.icon} ${c.title}</summary><p>${c.text}</p><em>Source: ${c.src}${c.link ? ` · <a href="${c.link}" target="_blank" rel="noopener">see the study</a>` : ''}</em></details>`
+        : `<div class="locked">🔒 Not found yet</div>`).join('')}</div>`);
+  }
+
+  function sources() {
+    overlay(`<h2>REAL NASA DATA</h2><p>Storm Watch is built on real space science. Here is what each data set does in the game.</p>
+      <ul class="srclist">${SOURCES.map(s => `<li><a href="${s[2]}" target="_blank" rel="noopener">${s[0]}</a><span>${s[1]}</span></li>`).join('')}</ul>
+      <p class="src">Storm strength in play, countdown lengths and difficulty are game settings, tuned for ages 7 to 12.</p>`);
+  }
+
+  // ---------- debrief quiz: one question per storm ----------
+  function questionFor(ev, asked) {
+    const pool = [
+      ev.mins != null && { id: 'warn' + ev.key, q: `In real life, how long after this flare did the radiation arrive?`, a: [`About ${ev.mins >= 120 ? Math.round(ev.mins / 60) + ' hours' : ev.mins + ' minutes'}`, 'About 3 days', 'A whole month'], why: 'The fastest particles race from the Sun in minutes to hours. That is all the warning a crew gets.' },
+      ev.key === '2017' && { id: 'aurora', q: 'What did this storm do at Mars?', a: ['Lit up an aurora 25 times brighter than ever seen there', 'Made it rain', 'Melted the ice caps'], why: 'NASA\'s MAVEN spacecraft watched the whole planet glow, and Curiosity measured double the radiation on the ground.' },
+      ev.key === '2024' && { id: 'gannon', q: 'What did people on Earth see during this storm?', a: ['Auroras much farther south than usual', 'Two suns', 'A solar eclipse'], why: 'The May 2024 storm was the strongest at Earth in over 20 years.' },
+      { id: 'safe', q: 'Where is the safest place during a radiation storm?', a: ['Deep in the Storm Shelter', 'In the Greenhouse', 'Outside on the surface'], why: 'Thick layers of Moon soil and water soak up radiation.' },
+      { id: 'o2', q: 'What does the oxygen machine use to make air?', a: ['Water', 'Moon dust', 'Sunlight only'], why: 'It splits water into hydrogen and oxygen using electricity.' },
+      { id: 'class', q: 'Which solar flare is the strongest?', a: ['X class', 'M class', 'C class'], why: 'The letters go A, B, C, M, X. Each one is 10 times stronger.' },
+      { id: 'delay', q: 'How long does a radio message take to reach the Moon?', a: ['About 1.3 seconds', 'About 1 hour', 'It is instant'], why: 'Radio moves at the speed of light. Mars is much farther: 4 to 24 minutes.' },
+      { id: 'moon', q: 'Why is a storm more dangerous on the Moon than on Earth?', a: ['The Moon has no air or magnetic shield', 'The Moon is closer to the Sun', 'The Moon is made of metal'], why: 'Earth\'s air and magnetic field block most space radiation.' },
+      { id: 'bones', q: 'What happens to astronauts\' bones in space?', a: ['They slowly get weaker', 'They grow longer', 'Nothing changes'], why: 'Without gravity to push against, bones can lose 1 to 1.5 percent of their strength a month.' },
+    ].filter(Boolean);
+    return pool.find(q => !asked.includes(q.id)) || pool[0];
+  }
+  // Renders a question into `host`; calls done(correct) once answered.
+  function quiz(host, ev, asked, done) {
+    const q = questionFor(ev, asked), order = q.a.map((_, i) => i).sort(() => Math.random() - 0.5);
+    asked.push(q.id);
+    host.innerHTML = `<h3>🧠 CADET QUESTION <small>+25 ★ if you get it right</small></h3><p class="qq">${q.q}</p>
+      <div class="qa">${order.map(i => `<button data-i="${i}">${q.a[i]}</button>`).join('')}</div><p class="why" hidden></p>`;
+    host.querySelectorAll('.qa button').forEach(b => b.onclick = () => {
+      const ok = b.dataset.i === '0';
+      host.querySelectorAll('.qa button').forEach(x => { x.disabled = true; x.classList.add(x.dataset.i === '0' ? 'right' : x === b ? 'wrong' : 'dim'); });
+      const w = host.querySelector('.why'); w.hidden = false; w.textContent = (ok ? '✔ Correct! ' : '✘ Not quite. ') + q.why;
+      SFX.play(ok ? 'correct' : 'wrong'); done(ok);
+    });
+  }
+
+  return { GLOSSARY, CARDS, BADGES, chip, chips, explain, flash, award, logbook, sources, quiz, overlay, closeOverlay,
+    get log() { return log; }, save };
+})();

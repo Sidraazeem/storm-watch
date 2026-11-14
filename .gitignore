@@ -5,3 +5,4 @@ dist-greenhouse-guard/
 .firebase/
 node_modules/
 *.log
+.claude/
