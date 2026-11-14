@@ -169,3 +169,5 @@ body.storm .badge { border-color: var(--red); color: #fff; background: var(--red
 .sys.threat .protect { display: block; }
 .sys.threat { border-color: var(--green); }
 .portrait.photo.art img { image-rendering: auto; transform: scale(1.3); transform-origin: 50% 28%; }
+.portrait.avatar { display: block; flex: none; border-radius: 50%; border: 2px solid; overflow: hidden; background: #0a1424; }
+.portrait.avatar svg { display: block; width: 100%; height: 100%; }

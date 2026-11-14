@@ -81,3 +81,7 @@ This runs `build.js` first, which wraps `index.html` into a full web page in `di
 | `build.js`, `firebase.json`, `.firebaserc` | Firebase Hosting build and settings |
 
 See [docs/HANDOFF.md](docs/HANDOFF.md) for team notes.
+
+## Avatar credit
+
+Commander avatars (and the fallback for the team) use the **Avataaars** style by Pablo Stanley (https://avataaars.com/, free for personal and commercial use), rendered with **DiceBear** (MIT, https://www.dicebear.com/). Both are bundled in `vendor/dicebear.js` so the game works offline; see `vendor/DICEBEAR-AVATAAARS-LICENSE.txt`.

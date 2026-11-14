@@ -177,7 +177,7 @@ function newGame() {
     hours: 0, rate: { o2: 0, h2o: 0, food: 0 }, dry: false, garden: 100, gg: false,
     sys: { o2: { lvl: 2 }, h2o: { lvl: 2 }, farm: { lvl: 2 }, shield: { lvl: 0 } },
     crew: TEAM.map(t => t.id === 'cmd'
-      ? { ...t, name: CMD.name, color: CMD.color, look: { ...CMD.look, acc: [...CMD.look.acc] } }
+      ? { ...t, name: CMD.name, color: CMD.color, look: { ...CMD.look } }
       : { ...t, look: { ...t.look } }),
     stats: { breaks: 0 }, fx: [], parts: [], banner: null, shake: 0, meet: null, hint: null, call: null, callAt: 0,
     paused: false, cut: null, panelsDown: false, foldA: 0, pendingFix: null,

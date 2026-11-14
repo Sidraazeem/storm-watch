@@ -263,7 +263,7 @@ function drawAstro(c, x, y, ts, alpha = 1) {
       const w = h.img.naturalWidth;
       if (h.photo && h.art) g.drawImage(h.img, w * 0.2, w * 0.06, w * 0.6, w * 0.6, x - 13, y - 64, 26, 26);   // avatar: crop to the face
       else if (h.photo) g.drawImage(h.img, x - 13, y - 64, 26, 26);
-      else g.drawImage(h.img, w * 0.18, w * 0.06, w * 0.64, w * 0.64, x - 13, y - 64, 26, 26);   // drawn portrait: crop to the face
+      else g.drawImage(h.img, w * 0.2, w * 0.1, w * 0.6, w * 0.6, x - 13, y - 64, 26, 26);   // avatar: crop to the face
     }
     g.restore(); g.imageSmoothingEnabled = true;
     g.strokeStyle = c.color; g.lineWidth = 1.5; circ(x, y - 51, 13); g.stroke();
@@ -271,12 +271,12 @@ function drawAstro(c, x, y, ts, alpha = 1) {
   } else {
     circ(x, y - 50, 12); g.fillStyle = '#eef3f8'; g.fill();
     // visor: the face shows through, then a tinted glass reflection
-    const vx = x + c.dir * 3, L = c.look;
+    const vx = x + c.dir * 3, V = visor(c);
     g.fillStyle = '#16263a'; g.beginPath(); g.ellipse(vx, y - 50, 7, 6, 0, 0, 7); g.fill();
     g.save(); g.beginPath(); g.ellipse(vx, y - 50, 7, 6, 0, 0, 7); g.clip();
-    if (L.hair === 'hijab') { g.fillStyle = L.hairColor; g.fillRect(vx - 7, y - 56, 14, 12); }
-    else { g.fillStyle = L.hairColor; g.fillRect(vx - 7, y - 57, 14, 4); }
-    g.fillStyle = L.skin; g.beginPath(); g.ellipse(vx + c.dir * 1, y - 49, 4.6, 4.8, 0, 0, 7); g.fill();
+    if (V.hijab) { g.fillStyle = V.hair; g.fillRect(vx - 7, y - 56, 14, 12); }
+    else { g.fillStyle = V.hair; g.fillRect(vx - 7, y - 57, 14, 4); }
+    g.fillStyle = V.skin; g.beginPath(); g.ellipse(vx + c.dir * 1, y - 49, 4.6, 4.8, 0, 0, 7); g.fill();
     g.fillStyle = 'rgba(30,60,95,.35)'; g.fillRect(vx - 7, y - 56, 14, 12);
     g.restore();
     g.fillStyle = 'rgba(255,255,255,.75)'; circ(vx + c.dir * 4, y - 53, 1.3); g.fill();
