@@ -240,7 +240,8 @@ function setPhase(p, dur, banner) { S.phase = p; S.t = S.dur = dur; if (banner) 
 
 function startRound() {
   S.stats = { breaks: 0 };
-  setPhase('calm', ev.calm ?? 25, 'ALL CLEAR'); //counter for the calm counter phase is either ev.calm, if no value is provided then its 25 second
+  const ev = EVENTS[S.round];
+  setPhase('calm', ev.calm, 'ALL CLEAR'); //counter for the calm counter phase is either ev.calm, if no value is provided then its 25 second
   $('#modal').classList.remove('show', 'fixing');
   log('All clear. Collect science outside and keep supplies topped up.', 'good', true);
 }
