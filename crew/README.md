@@ -1,6 +1,6 @@
 # Crew photos
 
-Drop a photo of each team member here and the game turns it into pixel art automatically:
+Drop a square picture of each team member here. The team uses cartoon avatars, shown as they are:
 
 | File | Crew member |
 | --- | --- |

@@ -34,23 +34,28 @@ function saveCommander() { try { localStorage.setItem('stormwatch.commander', JS
 const esc = s => String(s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 
 // ---------- crew photos (optional) ----------
-// Put a photo at crew/brian.jpg, crew/sidra.jpg or crew/quan.jpg and the game turns it into
-// pixel art when it loads. Until a photo is there, the drawn portrait below is used instead.
-const PHOTO_PX = 40;   // pixel-art resolution: lower = chunkier pixels
+// Put a picture at crew/brian.jpg, crew/sidra.jpg or crew/quan.jpg (square, head and shoulders).
+// Until a picture is there, the drawn portrait below is used instead.
+// The team uses cartoon avatars, shown as they are (PHOTO_PX = 0). To turn real photos into
+// pixel art instead, set PHOTO_PX to a pixel size such as 40 (lower = chunkier pixels).
+const PHOTO_PX = 0;
 const PHOTOS = {};     // crew id -> pixelated photo (data URL)
 const HEADS = {};      // crew id -> image used for the helmet-off head in the scene
 function loadPhoto(id, src) {
   const img = new Image();
   img.onload = () => {
-    const n = PHOTO_PX, cv = document.createElement('canvas'); cv.width = cv.height = n;
+    const art = !PHOTO_PX, n = art ? 256 : PHOTO_PX, cv = document.createElement('canvas'); cv.width = cv.height = n;
     const x = cv.getContext('2d'), s = Math.min(img.width, img.height);
+    x.imageSmoothingQuality = 'high';
     x.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, n, n);   // centre square crop
-    const d = x.getImageData(0, 0, n, n);                                            // fewer colours = retro look
-    for (let i = 0; i < d.data.length; i += 4) for (let k = 0; k < 3; k++) d.data[i + k] = Math.round(d.data[i + k] / 255 * 7) / 7 * 255;
-    x.putImageData(d, 0, 0);
+    if (!art) {                                                                       // pixel art: fewer colours = retro look
+      const d = x.getImageData(0, 0, n, n);
+      for (let i = 0; i < d.data.length; i += 4) for (let k = 0; k < 3; k++) d.data[i + k] = Math.round(d.data[i + k] / 255 * 7) / 7 * 255;
+      x.putImageData(d, 0, 0);
+    }
     PHOTOS[id] = cv.toDataURL();
-    const h = new Image(); h.src = PHOTOS[id]; HEADS[id] = { img: h, photo: true };
-    if (S) { buildUI(); render(); }
+    const h = new Image(); h.src = PHOTOS[id]; HEADS[id] = { img: h, photo: true, art };
+    if (S) { buildUI(); render(); const r = document.querySelector('.roster'); if (r) r.outerHTML = roster(); }   // also refresh the start screen
   };
   img.src = src;   // a missing file just keeps the drawn portrait
 }
@@ -68,7 +73,7 @@ function headFor(c) {
 
 // Head-and-shoulders portrait as an inline SVG (64 x 64 units), or the pixelated photo if there is one.
 function portrait(c, size = 40) {
-  if (PHOTOS[c.id]) return `<span class="portrait photo" style="width:${size}px;height:${size}px;border-color:${c.color}"><img src="${PHOTOS[c.id]}" alt="${esc(c.name)}"></span>`;
+  if (PHOTOS[c.id]) return `<span class="portrait photo${PHOTO_PX ? '' : ' art'}" style="width:${size}px;height:${size}px;border-color:${c.color}"><img src="${PHOTOS[c.id]}" alt="${esc(c.name)}"></span>`;
   const p = c.look, hc = p.hairColor, sk = p.skin, acc = p.acc || [], hijab = p.hair === 'hijab';
   const sash = c.sash || c.color, id = 'p' + Math.random().toString(36).slice(2, 8);
   const hair = {
