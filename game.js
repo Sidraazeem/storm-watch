@@ -122,6 +122,91 @@ function clock(h) {
   return `Day ${Math.floor(m / 1440) + 1} · ${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 }
 
+// ---------- the crew ----------
+// Three real team members plus the player's own customizable Commander.
+// Each role has a sash colour and an emblem: leaf (Botanist), gear (Engineer), rock (Geologist), star (Commander).
+// `look` drives the portrait: skin, hair style (or hijab), hair/hijab colour, beard, accessories.
+const SKIN = ['#f6dcc6', '#ecc4a2', '#d7a479', '#b47a50', '#8a5634', '#5c3820'];
+const HAIR = ['#15161a', '#3b2618', '#6b4428', '#d9b46a', '#a8482a', '#a39a90', '#1f3a6b', '#6e2235'];
+const STYLES = { short: 'Short', swept: 'Swept', buzz: 'Buzz', long: 'Long', curly: 'Curly', bun: 'Bun', hijab: 'Hijab' };
+const ACCS = { none: 'None', glasses: 'Glasses', earrings: 'Earrings', necklace: 'Necklace' };
+const CMD_COLORS = ['#37d6ff', '#a77bff', '#ff7ac8', '#ffd84a', '#7fb2ff'];   // no green / slate / copper (teammates) or red (danger)
+const TEAM = [
+  { id: 'cmd', name: 'Commander', role: 'Commander', job: 'pilot', perk: 'runs 2x faster', emblem: 'star', zone: 'work' },
+  { id: 'brian', name: 'Brian', role: 'Engineer', job: 'engineer', perk: 'easier repairs', emblem: 'gear', zone: 'work',
+    color: '#a9b8ca', sash: '#4f5d70', edge: '#c9d4e0',
+    look: { skin: '#f0cdb2', hair: 'short', hairColor: '#9a9187', beard: '#a8a096', smile: 2, acc: [] } },
+  { id: 'sidra', name: 'Sidra', role: 'Botanist', job: 'botanist', perk: 'grows 2x food', emblem: 'leaf', zone: 'green',
+    color: '#4be38a', look: { skin: '#a8714b', hair: 'hijab', hairColor: '#17171c', smile: 1, acc: ['necklace', 'pin'] } },
+  { id: 'quan', name: 'Quan', role: 'Geologist', job: 'geologist', perk: '2x science outside', emblem: 'rock', zone: 'eva',
+    color: '#e08a4f', look: { skin: '#e9c29b', hair: 'swept', hairColor: '#15161a', smile: 1, acc: ['glasses'] } },
+];
+const CMD_DEFAULT = { name: 'Commander', color: CMD_COLORS[0], look: { skin: SKIN[2], hair: 'short', hairColor: HAIR[1], smile: 1, acc: [] } };
+let CMD = loadCommander();
+function loadCommander() {
+  try {
+    const v = JSON.parse(localStorage.getItem('stormwatch.commander'));
+    if (v && v.look && STYLES[v.look.hair]) return { ...CMD_DEFAULT, ...v, look: { ...CMD_DEFAULT.look, ...v.look } };
+  } catch (e) {}
+  return JSON.parse(JSON.stringify(CMD_DEFAULT));
+}
+function saveCommander() { try { localStorage.setItem('stormwatch.commander', JSON.stringify(CMD)); } catch (e) {} }
+const esc = s => String(s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+
+// Head-and-shoulders portrait as an inline SVG (64 x 64 units).
+function portrait(c, size = 40) {
+  const p = c.look, hc = p.hairColor, sk = p.skin, acc = p.acc || [], hijab = p.hair === 'hijab';
+  const sash = c.sash || c.color, id = 'p' + Math.random().toString(36).slice(2, 8);
+  const hair = {
+    short: [``, `<path d="M20 29 Q18 13 32 13 Q46 13 44 29 Q42 19 32 19 Q23 19 20 29Z" fill="${hc}"/>`],
+    swept: [``, `<path d="M20 28 Q17 12 34 12 Q48 13 44 27 Q41 18 27 21 Q22 22 20 28Z" fill="${hc}"/><path d="M27 21 Q35 15 44 22 Q38 17 27 21Z" fill="#fff" opacity=".12"/>`],
+    buzz: [``, `<path d="M21 26 Q22 15 32 15 Q42 15 43 26 Q32 19 21 26Z" fill="${hc}" opacity=".85"/>`],
+    long: [`<path d="M17 30 Q16 13 32 13 Q48 13 47 30 L49 53 L15 53Z" fill="${hc}"/>`, `<path d="M20 28 Q21 15 32 15 Q43 15 44 28 Q37 20 29 21 Q24 22 20 28Z" fill="${hc}"/>`],
+    curly: [`<g fill="${hc}"><circle cx="20" cy="27" r="6"/><circle cx="44" cy="27" r="6"/><circle cx="19" cy="36" r="5"/><circle cx="45" cy="36" r="5"/></g>`,
+      `<g fill="${hc}"><circle cx="23" cy="19" r="6"/><circle cx="32" cy="15" r="7"/><circle cx="41" cy="19" r="6"/><circle cx="20" cy="25" r="4.5"/><circle cx="44" cy="25" r="4.5"/></g>`],
+    bun: [`<circle cx="32" cy="10" r="5.5" fill="${hc}"/>`, `<path d="M20 29 Q18 14 32 14 Q46 14 44 29 Q42 19 32 19 Q23 19 20 29Z" fill="${hc}"/>`],
+    hijab: [`<path d="M13 56 Q11 31 18 21 Q24 11 32 11 Q40 11 46 21 Q53 31 51 56Z" fill="${hc}"/>`,
+      `<ellipse cx="32" cy="31" rx="11.5" ry="13.5" fill="none" stroke="${hc}" stroke-width="3"/><ellipse cx="32" cy="31" rx="12.5" ry="14.5" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width="1"/>`],
+  }[p.hair] || ['', ''];
+  const emblem = {
+    leaf: `<path d="M-2.6 2.4 Q-3 -2.6 2.8 -2.8 Q2.8 2.6 -2.6 2.4Z M-2.6 2.4 L1.5 -1.5" fill="#4be38a" stroke="#0b3a20" stroke-width=".6"/>`,
+    gear: `<g fill="#c9d4e0"><circle r="2.2"/><g stroke="#c9d4e0" stroke-width="1.3">${[0, 45, 90, 135].map(a => `<line x1="0" y1="-3.4" x2="0" y2="3.4" transform="rotate(${a})"/>`).join('')}</g><circle r="0.9" fill="#4f5d70"/></g>`,
+    rock: `<path d="M-3 2 L-2.4 -1 L-0.4 -2.6 L2.2 -1.6 L3 1.6 Z" fill="#9b8f84" stroke="#3a3029" stroke-width=".5"/><line x1="-0.5" y1="-0.5" x2="2.8" y2="-3.4" stroke="#e08a4f" stroke-width=".9"/>`,
+    star: `<path d="M0 -3.2 L0.9 -1 L3.1 -1 L1.4 0.4 L2 2.7 L0 1.3 L-2 2.7 L-1.4 0.4 L-3.1 -1 L-0.9 -1Z" fill="${c.color}"/>`,
+  }[c.emblem];
+  const face = hijab ? { rx: 10.5, ry: 12.5 } : { rx: 12, ry: 14 };
+  const smile = p.smile === 2 ? 'M27 37 Q32 42 37 37' : 'M28.5 37.5 Q32 40 35.5 37.5';
+  return `<svg class="portrait" width="${size}" height="${size}" viewBox="0 0 64 64" aria-label="${esc(c.name)}">
+    <defs><clipPath id="${id}"><circle cx="32" cy="32" r="31"/></clipPath><clipPath id="${id}b"><path d="M6 64 Q8 52 20 50 L44 50 Q56 52 58 64Z"/></clipPath></defs>
+    <circle cx="32" cy="32" r="31" fill="#0a1424"/>
+    <g clip-path="url(#${id})">
+      ${hair[0]}
+      <path d="M6 64 Q8 52 20 50 L44 50 Q56 52 58 64Z" fill="#eef3f8"/>
+      <g clip-path="url(#${id}b)">
+        ${c.edge ? `<line x1="10" y1="50" x2="46" y2="68" stroke="${c.edge}" stroke-width="8.5"/>` : ''}
+        <line x1="10" y1="50" x2="46" y2="68" stroke="${sash}" stroke-width="6.5"/>
+      </g>
+      <circle cx="21" cy="58" r="4.6" fill="#0d1726" stroke="#8fa3bd" stroke-width=".7"/>
+      <g transform="translate(21 58)">${emblem}</g>
+      ${hijab ? '' : `<rect x="27.5" y="40" width="9" height="11" rx="3" fill="${sk}"/>`}
+      ${hijab ? `<path d="M13 56 Q11 31 18 21 Q24 11 32 11 Q40 11 46 21 Q53 31 51 56 Q42 50 32 50 Q22 50 13 56Z" fill="${hc}"/>` : ''}
+      <ellipse cx="32" cy="31" rx="${face.rx}" ry="${face.ry}" fill="${sk}"/>
+      ${hijab ? '' : `<ellipse cx="20.3" cy="32" rx="1.8" ry="3" fill="${sk}"/><ellipse cx="43.7" cy="32" rx="1.8" ry="3" fill="${sk}"/>`}
+      ${p.beard ? `<path d="M20.5 31 Q21 46 32 46 Q43 46 43.5 31 Q41 39.5 32 40 Q23 39.5 20.5 31Z" fill="${p.beard}"/><path d="M27.5 35.6 Q32 33.6 36.5 35.6 L36 36.6 Q32 35.4 28 36.6Z" fill="${p.beard}"/>` : ''}
+      <g fill="#1b1f27"><ellipse cx="27.5" cy="30.5" rx="1.4" ry="1.6"/><ellipse cx="36.5" cy="30.5" rx="1.4" ry="1.6"/></g>
+      <g stroke="${hijab ? '#2a1d16' : hc}" stroke-width="1.3" stroke-linecap="round" opacity=".9"><path d="M25 26.6 Q27.5 25.4 30 26.4"/><path d="M34 26.4 Q36.5 25.4 39 26.6"/></g>
+      <path d="${smile}" stroke="#7a3b2e" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+      ${hair[1]}
+      ${acc.includes('glasses') ? `<g fill="#9fd8ff" fill-opacity=".18" stroke="#1c2733" stroke-width="1.3"><rect x="23.3" y="27.4" width="8.4" height="6.4" rx="2"/><rect x="32.3" y="27.4" width="8.4" height="6.4" rx="2"/></g><line x1="31.7" y1="29.8" x2="32.3" y2="29.8" stroke="#1c2733" stroke-width="1.3"/>` : ''}
+      ${acc.includes('earrings') && !hijab ? `<g fill="#ffd36b"><circle cx="20.2" cy="36.6" r="1.5"/><circle cx="43.8" cy="36.6" r="1.5"/></g>` : ''}
+      ${acc.includes('earrings') && hijab ? `<circle cx="22" cy="40" r="1.3" fill="#ffd36b"/>` : ''}
+      ${acc.includes('necklace') ? `<path d="M24 51.5 Q32 58.5 40 51.5" stroke="#ffd36b" stroke-width="1.1" fill="none"/><circle cx="32" cy="56" r="1.7" fill="#ffd36b"/>` : ''}
+      ${acc.includes('pin') ? `<circle cx="42.5" cy="45.5" r="1.6" fill="#ffd36b" stroke="#8a6a1c" stroke-width=".4"/>` : ''}
+    </g>
+    <circle cx="32" cy="32" r="31" fill="none" stroke="${c.color}" stroke-width="2"/>
+  </svg>`;
+}
+
 let S; // game state
 
 function newGame() {
@@ -130,12 +215,9 @@ function newGame() {
     tanks: { o2: TANK.o2 * 0.7, h2o: TANK.h2o * 0.7, food: TANK.food * 0.7 },
     hours: 0, rate: { o2: 0, h2o: 0, food: 0 }, dry: false,
     sys: { o2: { lvl: 2 }, h2o: { lvl: 2 }, farm: { lvl: 2 }, shield: { lvl: 0 } },
-    crew: [
-      { id: 'ada',  name: 'Ada',  role: 'Pilot',     perk: 'runs 2x faster',     color: '#37d6ff', zone: 'work' },
-      { id: 'kai',  name: 'Kai',  role: 'Engineer',  perk: 'easier repairs',     color: '#ffb938', zone: 'work' },
-      { id: 'rosa', name: 'Rosa', role: 'Botanist',  perk: 'grows 2x food',      color: '#4be38a', zone: 'green' },
-      { id: 'sam',  name: 'Sam',  role: 'Geologist', perk: '2x science outside', color: '#c58bff', zone: 'eva' },
-    ],
+    crew: TEAM.map(t => t.id === 'cmd'
+      ? { ...t, name: CMD.name, color: CMD.color, look: { ...CMD.look, acc: [...CMD.look.acc] } }
+      : { ...t, look: { ...t.look } }),
     stats: { breaks: 0 }, fx: [], banner: null, shake: 0,
   };
   S.crew.forEach((c, i) => Object.assign(c, { i, x: ZONES[c.zone].slot(i), y: ZONES[c.zone].floor, path: [], dir: 1, dose: 0, health: 100, out: false }));
@@ -183,8 +265,8 @@ function buildUI() {
   S.crew.forEach(c => {
     const b = document.createElement('button');
     b.className = 'chip';
-    b.innerHTML = `<b><i class="dot" style="background:${c.color}"></i>${c.name} <small>${c.role}</small></b><span class="st"></span>
-      <div class="bar dose" title="Radiation dose (red line = NASA career limit)"><i></i></div>`;
+    b.innerHTML = `${portrait(c, 40)}<div class="who"><b style="color:${c.color}">${esc(c.name)} <small>${c.name === c.role ? '' : c.role}</small></b><span class="st"></span>
+      <div class="bar dose" title="Radiation dose (red line = NASA career limit)"><i></i></div></div>`;
     b.onclick = () => { S.sel = S.sel === c.id ? null : c.id; render(); };
     $('#crewbar').appendChild(b); c.el = b;
   });
@@ -249,7 +331,7 @@ function orderMove(c, zone) {
 }
 function stepCrew(dt) {
   S.crew.forEach(c => {
-    let d = WALK * (c.role === 'Pilot' ? 2 : 1) * dt;
+    let d = WALK * (c.job === 'pilot' ? 2 : 1) * dt;
     while (c.path.length && d > 0) {
       const [tx, ty] = c.path[0], dx = tx - c.x, dy = ty - c.y, len = Math.hypot(dx, dy);
       if (dx) c.dir = Math.sign(dx);
@@ -293,7 +375,7 @@ function tick() {
   S.hours += h; S.stats.hours += h;
   const use = { o2: 0, h2o: 0, food: 0 };            // kg per hour for the whole crew
   active.forEach(c => { const r = BVAD[activity(c)]; for (const k in use) use[k] += r[k] / 24; });
-  const farmers = at('green').reduce((a, c) => a + (c.role === 'Botanist' ? 2 : 1), 0);
+  const farmers = at('green').reduce((a, c) => a + (c.job === 'botanist' ? 2 : 1), 0);
   const makeFood = lvl('farm') ? MAKE.farm * lvl('farm') + MAKE.farmer * farmers : 0;
   const makeH2o = MAKE.h2o * lvl('h2o');
   // oxygen is made from water: no water, no oxygen
@@ -308,7 +390,7 @@ function tick() {
 
   // science from the surface
   at('eva').forEach(c => {
-    const g = c.role === 'Geologist' ? 2 : 1;
+    const g = c.job === 'geologist' ? 2 : 1;
     S.science += g * dt;
     if (Math.random() < 0.35 * dt) S.fx.push({ x: c.x, y: c.y - 70, text: '★+' + g, t: 1.2, color: '#ffb938' });
   });
@@ -340,7 +422,9 @@ function tick() {
     if (c.dose >= 100) c.health = 0;
     if (c.health <= 0) {
       c.health = 0; c.out = true; c.path = [];
-      log(`${c.name} is too sick to continue and has been evacuated.`, 'bad', true);
+      const heir = c.id === 'cmd' && S.crew.find(o => !o.out && o.id !== 'cmd');
+      log(heir ? `Commander ${c.name} is down and has been evacuated! ${heir.name} takes command.`
+        : `${c.name} is too sick to continue and has been evacuated.`, 'bad', true);
     }
   });
 
@@ -371,7 +455,7 @@ function repaired(k) {
 function openFix(k) {
   if (!S.sys[k].broken || !playing()) return;
   if (!at('work').length) { log('Nobody is in the Workshop. Drag a crew member there first.', 'warn'); beep(180, 0.1); return; }
-  const n = at('work').some(c => c.role === 'Engineer') ? 3 : 4;
+  const n = at('work').some(c => c.job === 'engineer') ? 3 : 4;
   const plugs = [['#ff4d5e', '●'], ['#37d6ff', '▲'], ['#4be38a', '■'], ['#ffb938', '◆']].slice(0, n);
   const order = plugs.map((_, i) => i).sort(() => Math.random() - 0.5);
   const btn = (i, side) => `<button data-i="${i}" data-side="${side}" style="background:${plugs[i][0]};border-color:${plugs[i][0]}">${plugs[i][1]}</button>`;
@@ -391,7 +475,7 @@ function openFix(k) {
 }
 
 // ---------- cards ----------
-function crewLine(c) { return `<li><b style="color:${c.color}">${c.name}</b>: ${c.out ? 'evacuated' : `health ${Math.round(c.health)}%`}, total dose ${Math.round(c.dose * 10)} mSv</li>`; }
+function crewLine(c) { return `<li>${portrait(c, 28)}<span><b style="color:${c.color}">${esc(c.name)}</b> <small>${c.name === c.role ? '' : c.role}</small>: ${c.out ? 'evacuated' : `health ${Math.round(c.health)}%`}, total dose ${Math.round(c.dose * 10)} mSv</span></li>`; }
 
 function debrief() {
   const ev = EVENTS[S.round];
@@ -401,7 +485,7 @@ function debrief() {
   say('Storm has passed. Stand by for debrief.');
   showCard(`
     <h2>STORM ${S.round + 1} SURVIVED</h2>
-    <ul>${S.crew.map(crewLine).join('')}</ul>
+    <ul class="crewlist">${S.crew.map(crewLine).join('')}</ul>
     <p>Systems knocked out: <b>${S.stats.breaks}</b> · Highest crew dose so far: <b>${Math.round(worst * 10)} mSv</b> (NASA career limit: 600 mSv)</p>
     <p class="life">Over these <b>${Math.round(S.stats.hours)} hours</b> your crew breathed <b>${S.stats.use.o2.toFixed(1)} kg</b> of oxygen,
       drank <b>${S.stats.use.h2o.toFixed(1)} kg</b> of water and ate <b>${S.stats.use.food.toFixed(1)} kg</b> of food.
@@ -435,7 +519,8 @@ function endGame() {
     <h2>FLIGHT READINESS RATING</h2>
     <div class="rating">${rating}</div>
     <p>Score: <b>${score}</b> · Science: <b>${Math.floor(S.science)}</b> · Crew still on duty: <b>${alive.length} / 4</b></p>
-    <ul>${S.crew.map(crewLine).join('')}</ul>
+    <ul class="crewlist">${S.crew.map(crewLine).join('')}</ul>
+    ${S.crew[0].out && alive.length ? `<p>Commander ${esc(S.crew[0].name)} was evacuated; ${esc(alive[0].name)} brought the crew home.</p>` : ''}
     <p>Mission length: ${clock(S.hours).replace(' · ', ', ')} · Supplies left: oxygen ${T.o2.toFixed(1)} kg, water ${T.h2o.toFixed(1)} kg, food ${T.food.toFixed(1)} kg</p>
     <button class="go" id="go">Play again</button>`, () => { newGame(); intro(); });
 }
@@ -447,11 +532,16 @@ function showCard(html, onGo) {
   render();
 }
 
-let loaded;
+let loaded, srcText = 'Contacting NASA for solar storm data…';
+function roster() {
+  return `<div class="roster">${S.crew.map(c => `<div>${portrait(c, 54)}<b style="color:${c.color}">${esc(c.name)}</b><small>${c.role} · ${c.perk}</small></div>`).join('')}</div>`;
+}
 function intro() {
   showCard(`
     <h2>STORM WATCH</h2>
     <p>You run a Moon base. Three <b>real solar storms</b> are coming. Keep your crew safe!</p>
+    ${roster()}
+    <button class="custom" id="custom">🧑‍🚀 Customize your Commander</button>
     <ul class="how">
       <li>🧑‍🚀 <b>Drag astronauts</b> between rooms.</li>
       <li>⭐ Outside they collect <b>science</b>, but have no protection.</li>
@@ -461,16 +551,69 @@ function intro() {
       <li>💧 The oxygen machine <b>splits water to make air</b>. Run out of water and the air runs out next.</li>
       <li>⏱️ Each second is <b>one hour</b> on the base. Working outside uses the most air and water.</li>
     </ul>
-    <p class="src" id="src">Contacting NASA for solar storm data…</p>
+    <p class="src" id="src">${srcText}</p>
     <button class="go" id="go" disabled>Begin mission ▶</button>`, startRound);
+  $('#custom').onclick = customize;
   loaded = loaded || loadEvents();
   loaded.then(() => {
     const n = EVENTS.filter(e => e.fromNasa).length;
-    $('#src').textContent = n === EVENTS.length ? `● Live NASA DONKI data loaded. Storm 1 is the strongest flare of the last 30 days: ${EVENTS[0].cls} on ${EVENTS[0].date}.`
+    srcText = n === EVENTS.length ? `● Live NASA DONKI data loaded. Storm 1 is the strongest flare of the last 30 days: ${EVENTS[0].cls} on ${EVENTS[0].date}.`
       : n ? `◐ ${n} of ${EVENTS.length} storms loaded live from NASA; the rest use saved NASA data.`
       : '○ NASA is unreachable right now. Using saved NASA DONKI data.';
-    $('#go').disabled = false;
+    if ($('#src')) $('#src').textContent = srcText;
+    if (S.phase === 'brief' && $('#go')) $('#go').disabled = false;
   });
+}
+
+// ---------- Commander customization (saved on this device) ----------
+function customize() {
+  const c = S.crew[0], L = CMD.look;
+  const opt = (group, val, inner, on, title = '') => `<button class="opt${on ? ' on' : ''}" data-g="${group}" data-v="${esc(val)}" title="${esc(title)}">${inner}</button>`;
+  const sw = col => `<i class="sw" style="background:${col}"></i>`;
+  showCard(`
+    <h2>YOUR COMMANDER</h2>
+    <div class="cust">
+      <div class="preview" id="preview">${portrait(c, 120)}</div>
+      <div class="rows">
+        <label>Name <input id="cname" maxlength="12" value="${esc(CMD.name)}" autocomplete="off"></label>
+        <div class="row"><span>Sash</span>${CMD_COLORS.map(col => opt('color', col, sw(col), CMD.color === col)).join('')}</div>
+        <div class="row"><span>Skin</span>${SKIN.map(col => opt('skin', col, sw(col), L.skin === col)).join('')}</div>
+        <div class="row"><span>Hair</span>${Object.entries(STYLES).map(([k, v]) => opt('hair', k, v, L.hair === k)).join('')}</div>
+        <div class="row"><span>${L.hair === 'hijab' ? 'Hijab' : 'Hair'} colour</span>${HAIR.map(col => opt('hairColor', col, sw(col), L.hairColor === col)).join('')}</div>
+        <div class="row"><span>Extra</span>${Object.entries(ACCS).map(([k, v]) => opt('acc', k, v, k === 'none' ? !L.acc.length : L.acc.includes(k))).join('')}</div>
+        <div class="row"><span>Facial hair</span>${opt('beard', 'none', 'None', !L.beard)}${opt('beard', 'beard', 'Beard', !!L.beard)}</div>
+      </div>
+    </div>
+    <p class="src">Commander perk: <b>runs 2x faster</b>. Your choices are saved on this device.</p>
+    <button id="rand">🎲 Randomize</button>
+    <button class="go" id="go">Done ▶</button>`, () => {
+      CMD.name = ($('#cname').value.trim() || 'Commander').slice(0, 12);
+      saveCommander(); applyCommander(); intro();
+    });
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+  $('#card').querySelectorAll('.opt').forEach(b => b.onclick = () => {
+    const gk = b.dataset.g, v = b.dataset.v;
+    if (gk === 'color') CMD.color = v;
+    else if (gk === 'acc') L.acc = v === 'none' ? [] : L.acc.includes(v) ? L.acc.filter(a => a !== v) : [...L.acc, v];
+    else if (gk === 'beard') L.beard = v === 'beard' ? L.hairColor : undefined;
+    else { L[gk] = v; if (gk === 'hairColor' && L.beard) L.beard = v; }
+    CMD.name = ($('#cname').value.trim() || 'Commander').slice(0, 12);
+    applyCommander(); customize(); beep(620, 0.04, 'sine');
+  });
+  $('#rand').onclick = () => {
+    Object.assign(L, { skin: pick(SKIN), hair: pick(Object.keys(STYLES)), hairColor: pick(HAIR),
+      acc: Object.keys(ACCS).filter(k => k !== 'none' && Math.random() < 0.3) });
+    L.beard = L.hair !== 'hijab' && Math.random() < 0.25 ? L.hairColor : undefined;
+    CMD.color = pick(CMD_COLORS);
+    CMD.name = ($('#cname').value.trim() || 'Commander').slice(0, 12);
+    applyCommander(); customize(); beep(620, 0.04, 'sine');
+  };
+  $('#cname').oninput = () => { CMD.name = $('#cname').value.trim() || 'Commander'; applyCommander(); $('#preview').innerHTML = portrait(S.crew[0], 120); };
+}
+function applyCommander() {
+  const c = S.crew[0];
+  Object.assign(c, { name: CMD.name, color: CMD.color, look: { ...CMD.look, acc: [...CMD.look.acc] } });
+  buildUI(); render();
 }
 
 // ---------- pointer input on the scene ----------
@@ -639,12 +782,26 @@ function drawAstro(c, x, y, ts, alpha = 1) {
   g.moveTo(x + 5, y - 16); g.lineTo(x + 5 + (climbing ? 0 : sw), y - (climbing ? Math.max(0, -sw) : 0)); g.stroke();
   g.fillStyle = '#9aa7b6'; rr(x + (c.dir > 0 ? -17 : 9), y - 40, 8, 20, 3); g.fill();  // backpack
   g.fillStyle = '#eef3f8'; rr(x - 10, y - 40, 20, 26, 6); g.fill();
-  g.fillStyle = c.color; g.fillRect(x - 10, y - 30, 20, 5);
+  // role sash across the chest + emblem badge
+  g.save(); rr(x - 10, y - 40, 20, 26, 6); g.clip();
+  const sx = c.dir > 0 ? 1 : -1;
+  if (c.edge) { g.strokeStyle = c.edge; g.lineWidth = 7; g.beginPath(); g.moveTo(x - 11 * sx, y - 41); g.lineTo(x + 11 * sx, y - 17); g.stroke(); }
+  g.strokeStyle = c.sash || c.color; g.lineWidth = 5; g.beginPath(); g.moveTo(x - 11 * sx, y - 41); g.lineTo(x + 11 * sx, y - 17); g.stroke();
+  g.restore();
+  drawEmblem(c, x + 4.5 * sx, y - 34);
   g.strokeStyle = '#eef3f8'; g.lineWidth = 5;
   g.beginPath(); g.moveTo(x - 9, y - 34); g.lineTo(x - 14 + sw * 0.6, y - 20); g.moveTo(x + 9, y - 34); g.lineTo(x + 14 - sw * 0.6, y - 20); g.stroke();
   circ(x, y - 50, 12); g.fillStyle = '#eef3f8'; g.fill();
-  g.fillStyle = '#16263a'; g.beginPath(); g.ellipse(x + c.dir * 3, y - 50, 7, 6, 0, 0, 7); g.fill();
-  g.fillStyle = c.color; circ(x + c.dir * 5, y - 52, 2); g.fill();
+  // visor: the face shows through, then a tinted glass reflection
+  const vx = x + c.dir * 3, L = c.look;
+  g.fillStyle = '#16263a'; g.beginPath(); g.ellipse(vx, y - 50, 7, 6, 0, 0, 7); g.fill();
+  g.save(); g.beginPath(); g.ellipse(vx, y - 50, 7, 6, 0, 0, 7); g.clip();
+  if (L.hair === 'hijab') { g.fillStyle = L.hairColor; g.fillRect(vx - 7, y - 56, 14, 12); }
+  else { g.fillStyle = L.hairColor; g.fillRect(vx - 7, y - 57, 14, 4); }
+  g.fillStyle = L.skin; g.beginPath(); g.ellipse(vx + c.dir * 1, y - 49, 4.6, 4.8, 0, 0, 7); g.fill();
+  g.fillStyle = 'rgba(30,60,95,.35)'; g.fillRect(vx - 7, y - 56, 14, 12);
+  g.restore();
+  g.fillStyle = 'rgba(255,255,255,.75)'; circ(vx + c.dir * 4, y - 53, 1.3); g.fill();
   g.lineCap = 'butt';
   if (alpha === 1) {
     txt(c.name, x, y - 70, 12, c.color, 'center', '"Segoe UI", sans-serif');
@@ -652,6 +809,14 @@ function drawAstro(c, x, y, ts, alpha = 1) {
     g.fillStyle = c.dose > 60 ? '#ff4d5e' : '#ffb938'; g.fillRect(x - 16, y - 66, 32 * Math.min(1, c.dose / 100), 4);
   }
   g.restore();
+}
+
+function drawEmblem(c, x, y) {
+  g.fillStyle = '#0d1726'; circ(x, y, 3.6); g.fill();
+  if (c.emblem === 'leaf') { g.fillStyle = '#4be38a'; g.beginPath(); g.ellipse(x, y, 2.6, 1.4, -0.7, 0, 7); g.fill(); }
+  else if (c.emblem === 'gear') { g.strokeStyle = '#c9d4e0'; g.lineWidth = 1; for (let a = 0; a < 4; a++) { const k = a * Math.PI / 4; g.beginPath(); g.moveTo(x - Math.cos(k) * 2.8, y - Math.sin(k) * 2.8); g.lineTo(x + Math.cos(k) * 2.8, y + Math.sin(k) * 2.8); g.stroke(); } g.fillStyle = '#c9d4e0'; circ(x, y, 1.6); g.fill(); }
+  else if (c.emblem === 'rock') { g.fillStyle = '#b3a596'; g.beginPath(); g.moveTo(x - 2.6, y + 1.8); g.lineTo(x - 1.8, y - 1.2); g.lineTo(x + 0.6, y - 2.2); g.lineTo(x + 2.6, y + 1.8); g.fill(); }
+  else { g.fillStyle = c.color; g.beginPath(); for (let i = 0; i < 10; i++) { const r = i % 2 ? 1.2 : 2.8, a = -Math.PI / 2 + i * Math.PI / 5; g.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); } g.fill(); }
 }
 
 function drawStorm(ts, dt) {

@@ -38,12 +38,14 @@ After storm 3 the player gets a Flight Readiness Rating (Cadet, Mission Speciali
 
 **Controls:** drag an astronaut onto a room (or tap the astronaut, then the room). Use + / − under each system for power. A broken machine shows a red FIX bubble; with someone in the Workshop, tap it and match coloured plugs to sockets.
 
-| Crew | Role | Perk |
-| --- | --- | --- |
-| Ada | Pilot | Moves 2x faster |
-| Kai | Engineer | Repair puzzle has 3 plugs instead of 4 |
-| Rosa | Botanist | Grows 2x food in the Greenhouse |
-| Sam | Geologist | Earns 2x science outside |
+| Crew | Role | Sash and emblem | Perk |
+| --- | --- | --- | --- |
+| Commander (the player's own astronaut, customizable) | Commander | Player's choice of colour, star | Moves 2x faster |
+| Brian | Engineer | Slate grey, gear | Repair puzzle has 3 plugs instead of 4 |
+| Sidra | Botanist | Green, leaf | Grows 2x food in the Greenhouse |
+| Quan | Geologist | Copper, rock | Earns 2x science outside |
+
+The crew are drawn after the team members. Each has a portrait on the crew cards, the start screen and the debrief. On the start screen, **Customize your Commander** sets the player's name, sash colour, skin tone, hair or hijab, hair colour, glasses / earrings / necklace and beard; choices are saved in the browser on that device. If the Commander is evacuated the game continues and the next crew member takes command. No NASA logos are used on the suits (NASA's insignia need explicit permission).
 
 **Score** = science + crew health × 2 + supplies left − total radiation dose. A crew member is evacuated if their dose reaches 1,000 mSv or their health hits zero from running out of oxygen, water or food.
 
