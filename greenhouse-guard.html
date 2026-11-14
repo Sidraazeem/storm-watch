@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Protect the Moon base greenhouse with water shielding. An easy space repair mini-game for junior astronauts.">
+<title>Greenhouse Guard · Save Our Space Garden</title>
+<link rel="icon" href="data:,"><link rel="stylesheet" href="greenhouse-guard.css?v=storm-action-2">
+</head>
+<body>
+<main class="gg-shell">
+  <header><span>STORM WATCH / JUNIOR ENGINEER</span><div><button id="gg-motion" aria-pressed="false">Pause motion ⏸</button><button id="gg-sound" aria-pressed="true">Sound on 🔊</button></div></header>
+  <div class="gg-layout">
+    <aside class="gg-cinema">
+      <img class="gg-solar" src="assets/space/flare.jpg" alt="NASA SDO observation of the September 10, 2017 solar flare">
+      <video class="gg-film" src="assets/space/solar-loop.mp4" poster="assets/space/flare.jpg" muted loop playsinline preload="metadata" aria-hidden="true"></video>
+      <div class="gg-shade"></div><div class="gg-dust" aria-hidden="true"></div>
+      <div class="gg-title"><span class="gg-badge">REAL NASA FOOTAGE / ARCHIVE</span><h1>GREENHOUSE<br><em>GUARD</em></h1><p>Little plants.<br>A big solar storm.<br><b>You’re their space hero.</b></p></div>
+      <div class="gg-mission"><span>OUR NEXT MEAL DEPENDS ON YOU</span><div class="gg-orb">🌱</div><p>Catch the particle streams.<br>Keep our garden growing.</p><div class="gg-garden-meter"><i></i></div><strong id="gg-progress">Garden health: 100%</strong></div>
+      <div class="gg-credit">X8.2 solar flare · September 10, 2017<br><a href="https://svs.gsfc.nasa.gov/12706" target="_blank" rel="noopener">NASA / GSFC / SDO ↗</a><small>Plants, particles, and protection are game graphics.</small></div>
+    </aside>
+    <section class="gg-console" aria-label="Greenhouse storm defense game">
+      <p class="gg-eyebrow">STORM DEFENSE / MOVE · CATCH · PROTECT</p><h2>Don’t let the storm eat our lunch.</h2>
+      <p class="gg-instructions"><b>Move the blue water shield under the red particle streams.</b><br>Drag, tap a plant bed, or use ← →. Space = Water Burst.</p>
+      <div class="ga-hud"><div><small>WAVE</small><b id="ga-wave">1 / 3</b></div><div><small>CAUGHT</small><b id="ga-caught">0</b></div><div><small>COMBO</small><b id="ga-combo">×0</b></div><div><small>GARDEN</small><b id="ga-health">100%</b></div></div>
+      <div class="ga-stage" tabindex="0" role="group" aria-label="Move your water shield between the three plant beds with left and right arrows. Press Space for Water Burst.">
+        <div class="ga-legend"><span>☄ SOLAR PARTICLES — HURT PLANTS</span><span>💧 WATER — PROTECTS</span></div>
+        <div class="ga-lanes" aria-hidden="true"><div></div><div></div><div></div></div>
+        <div class="ga-targets" aria-hidden="true"><span></span><span></span><span></span></div>
+        <canvas id="ga-particles" aria-hidden="true"></canvas>
+        <div class="ga-water-shield" aria-hidden="true"><div class="ga-water-fill"></div><b>💧</b><span>WATER SHIELD</span></div>
+        <div class="ga-wide-shield" aria-hidden="true">WATER BURST · ALL BEDS COVERED</div>
+        <div class="ga-plants"></div><div class="ga-banner" role="status" aria-live="polite"></div>
+        <div class="ga-intro"><b>THE STORM IS COMING.</b><span>Red streams hit → plants lose health.<br>Blue water shield catches → your garden stays green.</span><button id="ga-start">Start storm →</button><small>Three short waves. Missed a shot? Keep going!</small></div>
+      </div>
+      <div class="ga-lane-buttons" role="group" aria-label="Move shield to a plant bed"><button data-lane="0">← Lettuce</button><button data-lane="1">Tomatoes</button><button data-lane="2">Strawberries →</button></div>
+      <div id="gg-feedback" role="status" aria-live="polite">Watch the orange target. That bed is about to be hit!</div>
+      <div class="ga-controls"><button id="ga-burst">💧 Water Burst <span>READY</span></button><button id="ga-pause">Pause</button><button id="ga-reset">Restart ↻</button></div>
+      <details class="gg-facts"><summary>Real NASA story & how the shielding works</summary><p>The real storm: NASA DONKI lists an X8.2 flare peaking at 16:06 UTC on September 10, 2017, linked to a GOES13 particle event at 16:25 UTC—19 minutes later. These are detector times, not a lunar arrival forecast.</p><p>Water and other hydrogen-rich materials can reduce exposure to solar particles. This game uses water-filled shielding blocks, rather than ordinary heat insulation. The animated plant responses, shield strength, and harvest are fictional game mechanics; DONKI does not supply crop damage or shielding performance data.</p><p>The blue effects show protection improving, not all radiation disappearing. Plants still need growing lights, water, air, and care. The game’s particle animation is not to scale or a radiation transport model.</p><p><a href="https://ccmc.gsfc.nasa.gov/DONKI/view/FLR/13098/-1" target="_blank" rel="noopener">NASA flare record ↗</a> · <a href="https://ccmc.gsfc.nasa.gov/DONKI/view/SEP/13101/-1" target="_blank" rel="noopener">Particle record ↗</a> · <a href="https://humanresearchroadmap.nasa.gov/gaps/gap.aspx?i=360" target="_blank" rel="noopener">NASA shielding research ↗</a> · <a href="assets/space/CREDITS.md" target="_blank" rel="noopener">Media credits ↗</a></p><p>The silent solar movie is an archived, slowed NASA/GSFC/SDO excerpt. False-color ultraviolet imagery is not a natural-color view. Age suitability needs playtesting with children.</p></details>
+    </section>
+  </div>
+  <div class="gg-effects" aria-hidden="true"></div>
+  <section class="gg-victory" hidden aria-label="Storm defense complete"><div class="gg-victory-ring" aria-hidden="true"></div><div class="gg-win-stars">★ ★ ★</div><p class="gg-eyebrow">SOLAR STORM: SURVIVED</p><h2 id="ga-rating">GARDEN HERO!</h2><p id="ga-summary"></p><div class="gg-harvest" aria-label="Lettuce, tomatoes, and strawberries">🥬 🍅 🍓</div><p class="gg-win-fact">Missed streams hurt the plants.<br>Your water shield helped protect them.<br><small>Plant health and fast damage effects are game mechanics.</small></p><button id="gg-replay">Beat my score →</button></section>
+</main>
+<noscript>Turn on JavaScript to play Greenhouse Guard.</noscript>
+<script src="greenhouse-action.js?v=storm-action-2"></script>
+</body>
+</html>

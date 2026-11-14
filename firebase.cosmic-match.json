@@ -1,0 +1,11 @@
+{
+  "hosting": {
+    "site": "storm-watch-cosmic-match",
+    "public": "dist-cosmic-match",
+    "predeploy": ["node build-cosmic-match.js"],
+    "ignore": ["**/.*"],
+    "headers": [
+      {"source": "**", "headers": [{"key": "Cache-Control", "value": "no-cache"}]}
+    ]
+  }
+}

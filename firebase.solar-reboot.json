@@ -1,0 +1,11 @@
+{
+  "hosting": {
+    "site": "storm-watch-solar-reboot",
+    "public": "dist-solar-reboot",
+    "predeploy": ["node build-solar-reboot.js"],
+    "ignore": ["**/.*"],
+    "headers": [
+      {"source": "**", "headers": [{"key": "Cache-Control", "value": "no-cache"}]}
+    ]
+  }
+}

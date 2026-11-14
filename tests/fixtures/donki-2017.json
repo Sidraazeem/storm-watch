@@ -1,0 +1,71 @@
+{
+  "flare": {
+    "flrID": "2017-09-10T15:35:00-FLR-001",
+    "peakTime": "2017-09-10T16:06Z",
+    "classType": "X8.2",
+    "sourceLocation": "S08W88",
+    "activeRegionNum": 12673,
+    "link": "https://ccmc.gsfc.nasa.gov/DONKI/view/FLR/13098/-1",
+    "linkedEvents": [
+      {
+        "activityID": "2017-09-10T16:09:00-CME-001"
+      },
+      {
+        "activityID": "2017-09-10T16:25:00-SEP-001"
+      },
+      {
+        "activityID": "2017-09-10T16:45:00-SEP-001"
+      },
+      {
+        "activityID": "2017-09-10T20:00:00-SEP-001"
+      }
+    ]
+  },
+  "source": "https://ccmc.gsfc.nasa.gov/DONKI-API/get/",
+  "retrievedAt": "2026-11-14T18:00:15.9265526Z",
+  "particle": {
+    "sepID": "2017-09-10T16:25:00-SEP-001",
+    "eventTime": "2017-09-10T16:25Z",
+    "instruments": [
+      {
+        "displayName": "GOES13: SEM/EPS >100 MeV"
+      }
+    ],
+    "link": "https://ccmc.gsfc.nasa.gov/DONKI/view/SEP/13101/-1",
+    "linkedEvents": [
+      {
+        "activityID": "2017-09-10T15:35:00-FLR-001"
+      },
+      {
+        "activityID": "2017-09-10T16:09:00-CME-001"
+      }
+    ]
+  },
+  "cme": {
+    "activityID": "2017-09-10T16:09:00-CME-001",
+    "startTime": "2017-09-10T16:09Z",
+    "sourceLocation": "S09W91",
+    "link": "https://ccmc.gsfc.nasa.gov/DONKI/view/CME/13107/-1",
+    "linkedEvents": [
+      {
+        "activityID": "2017-09-10T15:35:00-FLR-001"
+      },
+      {
+        "activityID": "2017-09-10T16:25:00-SEP-001"
+      },
+      {
+        "activityID": "2017-09-10T16:45:00-SEP-001"
+      },
+      {
+        "activityID": "2017-09-10T20:00:00-SEP-001"
+      },
+      {
+        "activityID": "2017-09-12T19:26:00-IPS-001"
+      },
+      {
+        "activityID": "2017-09-13T05:33:00-SEP-001"
+      }
+    ]
+  },
+  "cmeRetrievedAt": "2026-11-14T18:27:25.2798336Z"
+}

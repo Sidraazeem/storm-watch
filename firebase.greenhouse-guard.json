@@ -1,0 +1,11 @@
+{
+  "hosting": {
+    "site": "storm-watch-greenhouse-guard",
+    "public": "dist-greenhouse-guard",
+    "predeploy": ["node build-greenhouse-guard.js"],
+    "ignore": ["**/.*"],
+    "headers": [
+      {"source": "**", "headers": [{"key": "Cache-Control", "value": "no-cache"}]}
+    ]
+  }
+}
