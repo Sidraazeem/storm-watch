@@ -137,7 +137,7 @@ const TEAM = [
     color: '#a9b8ca', sash: '#4f5d70', edge: '#c9d4e0',
     look: { skin: '#f0cdb2', hair: 'short', hairColor: '#9a9187', beard: '#a8a096', smile: 2, acc: [] } },
   { id: 'sidra', name: 'Sidra', role: 'Botanist', job: 'botanist', perk: 'grows 2x food', emblem: 'leaf', zone: 'green', photo: 'crew/sidra.jpg',
-    color: '#4be38a', look: { skin: '#c08a5f', hair: 'hijab', hairColor: '#5e2d55', frame: '#d4a640', smile: 1, acc: ['glasses', 'necklace', 'pin'] } },
+    color: '#4be38a', look: { skin: '#c08a5f', hair: 'hijab', hairColor: '#5e2d55', frame: '#3b2a2e', smile: 1, acc: ['glasses', 'pin'] } },
   { id: 'quan', name: 'Quan', role: 'Geologist', job: 'geologist', perk: '2x science outside', emblem: 'rock', zone: 'eva', photo: 'crew/quan.jpg',
     color: '#e08a4f', look: { skin: '#e9c29b', hair: 'swept', hairColor: '#15161a', smile: 1, acc: ['glasses'] } },
 ];
