@@ -12,6 +12,7 @@ fs.mkdirSync(out);
 let body = fs.readFileSync(path.join(src, 'index.html'), 'utf8');
 const headTags = (body.match(/^\s*<(title|link)\b.*$/gm) || []).map(s => s.trim());
 body = body.replace(/^\s*<(title|link)\b.*$\n?/gm, '');
+body = body.replace(/^\s*<meta charset[^>]*>\s*$\n?/gim, '');   // the page head below sets the charset
 const page = `<!doctype html>
 <html lang="en">
 <head>
