@@ -1,5 +1,7 @@
 # Greenhouse Guard — storm defense mini-game
 
+**Team play link:** https://storm-watch-greenhouse-guard.web.app
+
 Move a water shield between three plant beds to intercept incoming solar-particle
 streams. Missed streams reduce the plants' game health, with visible impacts,
 color changes, and wilting. Catches build a combo and score. Water Burst briefly
@@ -35,7 +37,19 @@ Open `http://localhost:8123/greenhouse-guard.html`.
 No main-game scripts, build step, login, API key, or runtime network requests are
 required. Browser checks covered catches versus misses, damage and wilting,
 keyboard and lane controls, Water Burst, pause, results, replay, mobile layout,
-and reduced-motion preferences. This commit does not publish a hosted version.
+and reduced-motion preferences.
+
+## Publish the standalone game
+
+`node build-greenhouse-guard.js` packages the mini-game in `dist-greenhouse-guard/`.
+To update its dedicated Firebase Hosting site:
+
+```text
+firebase deploy --only hosting --config firebase.greenhouse-guard.json --project storm-watch-spaceapps
+```
+
+This configuration deploys Greenhouse Guard independently of the main Storm Watch
+site and the other mini-games.
 
 ## Science and simulation
 
