@@ -55,5 +55,3 @@ The linked DONKI record identifies the real flare. Controller failures, visible
 gas bubbles, instantaneous sealing, percentages, filter capacity, cooldowns, and
 game timing are fictional mechanics, not NASA measurements or documented damage
 from that event. Media sources and preparation are in `assets/space/CREDITS.md`.
-
-

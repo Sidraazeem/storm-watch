@@ -164,4 +164,3 @@
   reset();syncMotion();raf=requestAnimationFrame(frame);
   window.LifeSupportArcade={get state(){return state;},mode:water?'water':'air'};
 })();
-
