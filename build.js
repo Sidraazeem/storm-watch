@@ -28,7 +28,10 @@ ${body}
 `;
 fs.writeFileSync(path.join(out, 'index.html'), page);
 for (const f of ['style.css', 'game.js']) fs.copyFileSync(path.join(src, f), path.join(out, f));
+// Greenhouse Guard mini-game (opened from the main game during severe storms) and its NASA media
+for (const f of ['greenhouse-guard.html', 'greenhouse-guard.css', 'greenhouse-action.js']) fs.copyFileSync(path.join(src, f), path.join(out, f));
+fs.cpSync(path.join(src, 'assets'), path.join(out, 'assets'), { recursive: true });
 // crew photos (optional): copy only the image files
 const crew = path.join(src, 'crew');
 if (fs.existsSync(crew)) fs.cpSync(crew, path.join(out, 'crew'), { recursive: true, filter: f => fs.statSync(f).isDirectory() || /\.(jpe?g|png|webp)$/i.test(f) });
-console.log('Built dist/ (index.html, style.css, game.js, crew photos)');
+console.log('Built dist/ (index.html, style.css, game.js, Greenhouse Guard, assets, crew photos)');

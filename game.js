@@ -117,6 +117,11 @@ const MAKE = { o2: 0.075, h2o: 0.32, farm: 0.09, farmer: 0.075 };
 const warnMins = ev => ev.mins != null ? ev.mins : 30;
 const hoursPerSec = ev => S.phase === 'warning' ? warnMins(ev) / 60 / ev.warn : 1;
 const pct = k => S.tanks[k] / TANK[k] * 100;
+// Greenhouse: only severe storms (X-class flares with a real radiation storm) damage the plants.
+const severe = ev => ev.sev >= 1.5;
+const GARDEN_DMG = 0.3;   // % garden health lost per second per unit of storm intensity, unprotected
+const PROTECT_AT = [505, 330];
+const canProtect = () => S.phase === 'storm' && !S.ggDone && severe(EVENTS[S.round]);
 function clock(h) {
   const m = Math.floor(h * 60);
   return `Day ${Math.floor(m / 1440) + 1} · ${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
@@ -247,7 +252,7 @@ function newGame() {
   S = {
     round: 0, phase: 'brief', t: 0, dur: 1, I: 0, supply: 14, sel: null, drag: null, ptr: null, science: 0,
     tanks: { o2: TANK.o2 * 0.7, h2o: TANK.h2o * 0.7, food: TANK.food * 0.7 },
-    hours: 0, rate: { o2: 0, h2o: 0, food: 0 }, dry: false,
+    hours: 0, rate: { o2: 0, h2o: 0, food: 0 }, dry: false, garden: 100, gg: false,
     sys: { o2: { lvl: 2 }, h2o: { lvl: 2 }, farm: { lvl: 2 }, shield: { lvl: 0 } },
     crew: TEAM.map(t => t.id === 'cmd'
       ? { ...t, name: CMD.name, color: CMD.color, look: { ...CMD.look, acc: [...CMD.look.acc] } }
@@ -309,9 +314,10 @@ function buildUI() {
     `<div class="sys" data-s="${k}"><div class="name">${s.icon} ${s.name} <small></small></div>
      <div class="bar"><i></i></div>
      <div class="ctl"><button data-d="-1">−</button><div class="pips"><i></i><i></i><i></i></div><button data-d="1">+</button></div>
-     <button class="fix">🔧 FIX IT</button></div>`).join('');
+     <button class="fix">🔧 FIX IT</button>${k === 'farm' ? '<button class="protect">🌱 PROTECT</button>' : ''}</div>`).join('');
   document.querySelectorAll('.sys .ctl button').forEach(b => b.onclick = () => setLevel(b.closest('.sys').dataset.s, +b.dataset.d));
   document.querySelectorAll('.sys .fix').forEach(b => b.onclick = () => openFix(b.closest('.sys').dataset.s));
+  document.querySelector('.sys .protect').onclick = openGarden;
 }
 
 function setLevel(k, d) {
@@ -335,6 +341,7 @@ function render() {
     const s = S.sys[k], def = SYSTEMS[k], el = document.querySelector(`.sys[data-s="${k}"]`);
     const v = def.tank ? pct(def.tank) : lvl('shield') * 20;
     el.classList.toggle('broken', s.broken);
+    if (k === 'farm') el.classList.toggle('threat', canProtect());
     el.classList.toggle('low', !!def.tank && v < 25);
     el.querySelectorAll('.pips i').forEach((p, i) => p.classList.toggle('on', i < s.lvl));
     let label = v ? `-${v}% radiation` : 'off';
@@ -382,7 +389,8 @@ const radAt = c => !c.path.length ? ZONES[c.zone].rad : c.y <= SURF + 2 ? 1 : c.
 function setPhase(p, dur, banner) { S.phase = p; S.t = S.dur = dur; if (banner) S.banner = { text: banner, t: 2.2 }; }
 
 function startRound() {
-  S.stats = { breaks: 0, hours: 0, use: { o2: 0, h2o: 0, food: 0 }, split: 0 };
+  S.stats = { breaks: 0, hours: 0, use: { o2: 0, h2o: 0, food: 0 }, split: 0, garden0: S.garden };
+  S.ggDone = false;
   setPhase('calm', 25, 'ALL CLEAR');
   $('#modal').classList.remove('show', 'fixing');
   log('All clear. Collect science outside and keep supplies topped up.', 'good', true);
@@ -390,7 +398,7 @@ function startRound() {
 
 function tick() {
   walkClock();
-  if (!playing()) return;
+  if (!playing() || S.gg) return;          // paused while Greenhouse Guard is open
   const dt = DT * SPEED, ev = EVENTS[S.round];
   S.t -= dt;
 
@@ -411,7 +419,8 @@ function tick() {
   const use = { o2: 0, h2o: 0, food: 0 };            // kg per hour for the whole crew
   active.forEach(c => { const r = BVAD[activity(c)]; for (const k in use) use[k] += r[k] / 24; });
   const farmers = at('green').reduce((a, c) => a + (c.job === 'botanist' ? 2 : 1), 0);
-  const makeFood = lvl('farm') ? MAKE.farm * lvl('farm') + MAKE.farmer * farmers : 0;
+  // food grows in proportion to garden health (storm-damaged plants grow less)
+  const makeFood = (lvl('farm') ? MAKE.farm * lvl('farm') + MAKE.farmer * farmers : 0) * S.garden / 100;
   const makeH2o = MAKE.h2o * lvl('h2o');
   // oxygen is made from water: no water, no oxygen
   const wantO2 = MAKE.o2 * lvl('o2');
@@ -449,6 +458,12 @@ function tick() {
 
   // radiation dose + health
   const cut = 1 - 0.2 * lvl('shield');
+
+  // greenhouse garden: only severe storms hurt the plants (thin walls); the water shield helps.
+  // Playing Greenhouse Guard protects it for the rest of the storm. Between storms it regrows
+  // while the grow lights are on, fastest with the Botanist tending it.
+  if (S.phase === 'storm' && severe(ev) && !S.ggDone) S.garden = Math.max(0, S.garden - GARDEN_DMG * S.I * cut * dt);
+  else if (S.phase !== 'storm' && lvl('farm')) S.garden = Math.min(100, S.garden + (at('green').some(c => c.job === 'botanist') ? 1.2 : 0.3) * dt);
   active.forEach(c => {
     c.dose += S.I * radAt(c) * cut * dt;
     if (T.o2 <= 0) c.health -= 4 * dt;
@@ -474,7 +489,8 @@ function tick() {
       log(`${ev.cls} solar flare detected! Radiation arrives in ${warnMins(ev)} minutes${ev.mins != null ? '' : ' (drill)'}. Everyone to the Storm Shelter!`, 'warn', true);
     } else if (S.phase === 'warning') {
       setPhase('storm', ev.storm, 'RADIATION STORM'); S.shake = 0.8;
-      log('The radiation storm has reached the outpost!', 'bad', true);
+      if (severe(ev)) log('Severe storm! Radiation is hitting the greenhouse plants. Tap 🌱 PROTECT on the Greenhouse!', 'bad', true);
+      else log('The radiation storm has reached the outpost!', 'bad', true);
     } else debrief();
   }
   render();
@@ -522,6 +538,7 @@ function debrief() {
     <h2>STORM ${S.round + 1} SURVIVED</h2>
     <ul class="crewlist">${S.crew.map(crewLine).join('')}</ul>
     <p>Systems knocked out: <b>${S.stats.breaks}</b> · Highest crew dose so far: <b>${Math.round(worst * 10)} mSv</b> (NASA career limit: 600 mSv)</p>
+    ${severe(ev) || S.garden < 100 ? `<p class="life">🌱 Greenhouse garden: <b>${Math.round(S.garden)}%</b> healthy${severe(ev) ? (S.ggDone ? ' (you protected it with the water shield)' : ' (left unprotected during a severe storm)') : ''}. Food grows at ${Math.round(S.garden)}% speed until the plants recover.</p>` : ''}
     <p class="life">Over these <b>${Math.round(S.stats.hours)} hours</b> your crew breathed <b>${S.stats.use.o2.toFixed(1)} kg</b> of oxygen,
       drank <b>${S.stats.use.h2o.toFixed(1)} kg</b> of water and ate <b>${S.stats.use.food.toFixed(1)} kg</b> of food.
       The oxygen machine split <b>${S.stats.split.toFixed(1)} kg</b> of water to make air.
@@ -690,6 +707,33 @@ function endMeet() {
   startRound();
 }
 
+// ---------- Greenhouse Guard mini-game (embedded) ----------
+// Opens greenhouse-guard.html in embedded mode. The main game pauses until the player returns.
+function openGarden() {
+  if (!canProtect() || S.gg) return;
+  const ev = EVENTS[S.round];
+  S.gg = true; render();
+  const wrap = document.createElement('div');
+  wrap.id = 'ggwrap';
+  wrap.innerHTML = `<div class="ggbox"><div class="gghead"><b>🌱 GREENHOUSE GUARD</b><span>The base is paused</span><button id="ggleave">✕ Leave plants unprotected</button></div>
+    <iframe src="greenhouse-guard.html?embed=1&waves=${ev.sev >= 2 ? 2 : 1}&health=${Math.round(S.garden)}" title="Greenhouse Guard mini-game"></iframe></div>`;
+  document.body.appendChild(wrap);
+  $('#ggleave').onclick = () => closeGarden(null);
+  beep(620, 0.06, 'sine');
+}
+function closeGarden(result) {
+  const w = $('#ggwrap'); if (w) w.remove();
+  S.gg = false;
+  if (result) {
+    S.garden = Math.max(0, Math.min(100, result.health)); S.ggDone = true;
+    log(`Greenhouse protected! Garden health ${Math.round(S.garden)}%. The water shield covers it for the rest of this storm.`, 'good', true);
+  } else log('The plants are still exposed. Tap 🌱 PROTECT to go back.', 'warn');
+  render();
+}
+addEventListener('message', e => {
+  if (e.origin === location.origin && e.data && e.data.source === 'greenhouse-guard' && S.gg) closeGarden(e.data);
+});
+
 // ---------- pointer input on the scene ----------
 const cv = $('#scene'), g = cv.getContext('2d');
 const toWorld = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.height * H]; };
@@ -700,8 +744,10 @@ let downAt = null;
 
 cv.addEventListener('pointerdown', e => {
   if (!playing()) return;
+  if (S.gg) return;
   const [x, y] = toWorld(e), fk = fixAt(x, y), c = crewAt(x, y);
   if (fk) return openFix(fk);
+  if (canProtect() && Math.hypot(x - PROTECT_AT[0], y - PROTECT_AT[1]) < 30) return openGarden();
   if (c) { S.drag = S.sel = c.id; S.ptr = [x, y]; downAt = [x, y]; cv.setPointerCapture(e.pointerId); }
   else { const z = zoneAt(x, y); if (z && S.sel) { orderMove(S.crew.find(c => c.id === S.sel), z); S.sel = null; } }
   render();
@@ -807,10 +853,17 @@ function drawMachines(ts) {
   for (let i = 0; i < 7; i++) {
     const px = gz.x + 45 + i * 44, hgt = 8 + pct('food') * 0.42;
     g.fillStyle = '#5a4634'; g.fillRect(px - 12, gz.floor - 8, 24, 8);
-    g.strokeStyle = pct('food') < 25 ? '#9a8f3a' : '#4be38a'; g.lineWidth = 3;
+    g.strokeStyle = S.garden < 40 ? '#8a6a3a' : S.garden < 70 || pct('food') < 25 ? '#9a8f3a' : '#4be38a'; g.lineWidth = 3;
     g.beginPath(); g.moveTo(px, gz.floor - 8); g.lineTo(px + Math.sin(ts / 700 + i) * 2, gz.floor - 8 - hgt); g.stroke();
     g.fillStyle = g.strokeStyle; g.beginPath(); g.ellipse(px - 6, gz.floor - 8 - hgt * 0.6, 7, 3, -0.5, 0, 7); g.fill();
     g.beginPath(); g.ellipse(px + 6, gz.floor - 8 - hgt * 0.85, 7, 3, 0.5, 0, 7); g.fill();
+  }
+  txt(`GARDEN ${Math.round(S.garden)}%`, gz.x + 14, gz.y + 40, 11, S.garden < 40 ? '#ff9aa4' : S.garden < 70 ? '#ffb938' : '#4be38a');
+  if (canProtect()) {
+    const [x, y] = PROTECT_AT;
+    circ(x, y, 22 + Math.sin(ts / 120) * 3); g.fillStyle = '#1f9d5a'; g.fill(); g.lineWidth = 2; g.strokeStyle = '#fff'; g.stroke();
+    txt('🌱', x, y + 7, 20, '#fff', 'center', 'sans-serif');
+    txt('PROTECT', x, y + 40, 11, '#9dffc1', 'center');
   }
   // workshop: oxygen and water tanks double as supply gauges
   [['o2', 715, '#9fe8ff', 'O₂'], ['h2o', 885, '#3d8bff', 'H₂O']].forEach(([k, x, col, label]) => {
@@ -931,7 +984,7 @@ function drawStorm(ts, dt) {
 let lastWalk = performance.now();
 function walkClock() {
   const now = performance.now(), dt = Math.min(1, (now - lastWalk) / 1000); lastWalk = now;
-  if (playing()) stepCrew(dt * SPEED);
+  if (playing() && !S.gg) stepCrew(dt * SPEED);
 }
 
 let lastTs = 0;

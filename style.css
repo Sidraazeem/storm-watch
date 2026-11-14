@@ -157,3 +157,14 @@ body.storm .badge { border-color: var(--red); color: #fff; background: var(--red
 #meet .go { border-color: var(--cyan); color: var(--cyan); }
 @keyframes pop { from { transform: scale(.85); opacity: 0; } }
 @media (max-width: 700px) { #meet { left: 3%; right: 3%; width: auto; top: auto; bottom: 3%; } #meet::before { display: none; } #meet p { font-size: 13px; } }
+
+/* Greenhouse Guard mini-game, embedded during severe storms */
+#ggwrap { position: fixed; inset: 0; z-index: 8; background: rgba(3, 6, 12, .82); display: flex; align-items: center; justify-content: center; padding: 10px; }
+#ggwrap .ggbox { width: min(640px, 100%); height: min(720px, 100%); display: flex; flex-direction: column; background: #091a24; border: 2px solid var(--green); border-radius: 10px; overflow: hidden; }
+#ggwrap .gghead { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+#ggwrap .gghead b { color: var(--green); font-family: Consolas, monospace; letter-spacing: 1px; }
+#ggwrap .gghead span { color: var(--dim); font-size: 12px; flex: 1; }
+#ggwrap iframe { flex: 1; width: 100%; border: 0; background: #091a24; }
+.sys .protect { display: none; width: 100%; margin-top: 5px; background: #1f9d5a; color: #fff; border-color: var(--green); font-weight: bold; animation: pulse .5s infinite alternate; }
+.sys.threat .protect { display: block; }
+.sys.threat { border-color: var(--green); }

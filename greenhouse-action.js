@@ -1,6 +1,10 @@
 (function(){
   'use strict';
   const $=s=>document.querySelector(s),names=['Lettuce','Tomatoes','Strawberries'];
+  // Embedded in the main Storm Watch game: greenhouse-guard.html?embed=1&waves=1&health=80
+  // waves = how many waves (1-3), health = starting garden health. The result is sent back to the game.
+  const P=new URLSearchParams(location.search),EMBED=P.has('embed'),WAVES=Math.max(1,Math.min(3,Math.round(+P.get('waves'))||3)),START=Math.max(0,Math.min(100,Math.round(+(P.get('health')??100))||0));
+  if(EMBED){document.body.classList.add('gg-embed');$('.ga-intro small').textContent=WAVES===1?'One short wave. Then back to the base!':`${WAVES} short waves. Then back to the base!`;$('#gg-replay').textContent='Back to base →';}
   const film=$('.gg-film'),canvas=$('#ga-particles'),ctx=canvas.getContext('2d'),stage=$('.ga-stage');
   let state,quiet=false,motion=!matchMedia('(prefers-reduced-motion: reduce)').matches,audio,bus,last=0,raf,hiddenPause=false,width=1,height=1;
   let best=0;try{best=+localStorage.getItem('greenhouse-best-v2')||0;}catch{}
@@ -23,8 +27,8 @@
   function feedback(text){$('#gg-feedback').textContent=text;}
   function reset(){
     document.body.classList.remove('ga-running');
-    state={phase:'intro',lane:1,health:[100,100,100],time:0,spawn:0,wave:0,sent:0,shots:[],fx:[],caught:0,hits:0,combo:0,maxCombo:0,score:0,charge:0,burst:0,flash:[0,0,0],banner:0,breakTime:0,lastLane:-1};
-    $('.ga-plants').innerHTML=names.map((name,i)=>`<div class="ga-plant" data-plant="${i}"><div class="ga-impact" aria-hidden="true"></div>${plant(i)}<b>${name}</b><div class="ga-healthbar"><i></i></div><span class="ga-plant-health">100%</span><span class="ga-hit-label" aria-hidden="true">RADIATION HIT!</span></div>`).join('');
+    state={phase:'intro',lane:1,health:[START,START,START],time:0,spawn:0,wave:0,sent:0,shots:[],fx:[],caught:0,hits:0,combo:0,maxCombo:0,score:0,charge:0,burst:0,flash:[0,0,0],banner:0,breakTime:0,lastLane:-1};
+    $('.ga-plants').innerHTML=names.map((name,i)=>`<div class="ga-plant" data-plant="${i}"><div class="ga-impact" aria-hidden="true"></div>${plant(i)}<b>${name}</b><div class="ga-healthbar"><i></i></div><span class="ga-plant-health">${START}%</span><span class="ga-hit-label" aria-hidden="true">RADIATION HIT!</span></div>`).join('');
     $('.gg-victory').hidden=true;$('.ga-intro').hidden=false;$('.ga-banner').textContent='';$('#ga-pause').textContent='Pause';feedback('Watch the orange target. That bed is about to be hit!');render();
   }
   function move(lane){if(state.phase==='end')return;const n=Math.max(0,Math.min(2,lane));if(n!==state.lane)sound('move');state.lane=n;render();}
@@ -62,10 +66,10 @@
       if(!shot.dead&&shot.y>=.81){resolveShot(shot,false);shot.dead=true;}
     }
     state.shots=state.shots.filter(s=>!s.dead);
-    if(state.sent===6&&!state.shots.length){if(state.wave===2)finish();else{state.phase='break';state.breakTime=2.3;announce('BREATHER · NEXT WAVE COMING',2.3);feedback('Nice work. Keep an eye on every bed—the storm will change lanes.');}}
+    if(state.sent===6&&!state.shots.length){if(state.wave>=WAVES-1)finish();else{state.phase='break';state.breakTime=2.3;announce('BREATHER · NEXT WAVE COMING',2.3);feedback('Nice work. Keep an eye on every bed—the storm will change lanes.');}}
   }
   function render(){
-    const average=Math.round(state.health.reduce((a,b)=>a+b,0)/3);$('#ga-wave').textContent=`${state.wave+1} / 3`;$('#ga-caught').textContent=state.caught;$('#ga-combo').textContent='×'+state.combo;$('#ga-health').textContent=average+'%';$('#gg-progress').textContent=`Garden health: ${average}%`;
+    const average=Math.round(state.health.reduce((a,b)=>a+b,0)/3);$('#ga-wave').textContent=`${state.wave+1} / ${WAVES}`;$('#ga-caught').textContent=state.caught;$('#ga-combo').textContent='×'+state.combo;$('#ga-health').textContent=average+'%';$('#gg-progress').textContent=`Garden health: ${average}%`;
     $('.gg-garden-meter i').style.width=average+'%';$('.ga-water-shield').style.left=((state.lane+.5)/3*100)+'%';$('.ga-wide-shield').classList.toggle('ga-active',state.burst>0);
     $('#ga-burst').disabled=state.phase!=='play'||state.charge>0;$('#ga-burst span').textContent=state.burst>0?'ACTIVE':state.charge>0?`${Math.ceil(state.charge)}s`:'READY';
     document.querySelectorAll('[data-lane]').forEach(b=>{b.classList.toggle('ga-chosen',+b.dataset.lane===state.lane);b.setAttribute('aria-pressed',String(+b.dataset.lane===state.lane));});
@@ -91,7 +95,8 @@
   stage.onpointerdown=e=>{if(e.target.closest('button')||state.phase==='intro')return;stage.setPointerCapture(e.pointerId);movePointer(e);};stage.onpointermove=e=>{if(e.buttons===1)movePointer(e);};
   stage.onkeydown=e=>{if(e.target.closest('button'))return;if(['ArrowLeft','ArrowRight',' '].includes(e.key)){e.preventDefault();if(e.key===' ')burst();else move(state.lane+(e.key==='ArrowLeft'?-1:1));}};
   document.querySelectorAll('[data-lane]').forEach(b=>b.onclick=()=>move(+b.dataset.lane));$('#ga-start').onclick=start;$('#ga-burst').onclick=burst;$('#ga-pause').onclick=pause;
-  $('#ga-reset').onclick=()=>{reset();$('#ga-start').focus();};$('#gg-replay').onclick=()=>{reset();start();};
+  $('#ga-reset').onclick=()=>{reset();$('#ga-start').focus();};$('#gg-replay').onclick=()=>{if(EMBED)return report();reset();start();};
+  function report(){const average=Math.round(state.health.reduce((a,b)=>a+b,0)/3);try{parent.postMessage({source:'greenhouse-guard',health:average,caught:state.caught,hits:state.hits,score:state.score},location.origin);}catch{}}
   $('#gg-sound').onclick=()=>{quiet=!quiet;if(bus)bus.gain.setValueAtTime(quiet?0:.6,audio.currentTime);$('#gg-sound').textContent=quiet?'Sound off 🔇':'Sound on 🔊';$('#gg-sound').setAttribute('aria-pressed',String(!quiet));};
   function syncMotion(){document.body.classList.toggle('gg-still',!motion);$('#gg-motion').textContent=motion?'Pause effects ⏸':'Play effects ▶';$('#gg-motion').setAttribute('aria-pressed',String(!motion));film.hidden=!motion;if(motion&&!document.hidden)film.play().catch(()=>{film.hidden=true;});else film.pause();}
   $('#gg-motion').onclick=()=>{motion=!motion;syncMotion();};document.addEventListener('visibilitychange',()=>{if(document.hidden&&['play','break'].includes(state.phase)){pause();hiddenPause=true;}else if(hiddenPause){feedback('Game paused while you were away. Press Resume when you’re ready.');hiddenPause=false;}syncMotion();});
