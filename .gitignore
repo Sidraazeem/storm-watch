@@ -1,4 +1,5 @@
 dist/
+dist-cosmic-match/
 .firebase/
 node_modules/
 *.log

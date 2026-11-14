@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Match real NASA space pictures, discover a real solar storm, and reboot the oxygen controls. A standalone mini-game for junior astronauts.">
+  <title>Cosmic Match · NASA Picture Mini-Game</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="cosmic-match.css">
+  <style>
+    *{box-sizing:border-box}html{color-scheme:dark}body{margin:0;background:#030812;color:#e9f4ff;font:14px/1.4 'Segoe UI',system-ui,sans-serif}button{background:#12233a;color:#e9f4ff;border:1px solid #345368;border-radius:4px;cursor:pointer;padding:4px 9px}button:disabled{cursor:default}a{color:#a2deed}.modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:16px}.card{max-height:94dvh;overflow-y:auto;width:100%}.standalone .cm-close{display:none}.cm-sound{font:10px 'Segoe UI',sans-serif;background:transparent;color:#bde4e5;letter-spacing:0;padding:5px 10px}.cm-top{gap:8px}.cm-top>span{min-width:0}noscript{display:block;margin:30px;max-width:500px}
+    @media(max-width:620px){.modal{padding:8px}.cm-top>span{font-size:7px;letter-spacing:.5px}.cm-sound{font-size:9px}}
+  </style>
+</head>
+<body class="standalone">
+  <main class="modal cosmic-modal" aria-label="Cosmic Match mini-game"><div class="card" id="match"></div></main>
+  <noscript>Cosmic Match needs JavaScript. Turn it on in your browser to play.</noscript>
+  <script src="cosmic-match.js"></script>
+  <script>
+    'use strict';
+    let quiet=false,audio;
+    function tone(freq=440,duration=.1,type='sine'){
+      if(quiet)return;
+      try{
+        audio=audio||new(window.AudioContext||window.webkitAudioContext)();
+        if(audio.state==='suspended')audio.resume().catch(()=>{});
+        const oscillator=audio.createOscillator(),gain=audio.createGain();
+        oscillator.type=type;oscillator.frequency.value=freq;
+        gain.gain.setValueAtTime(.035,audio.currentTime);
+        gain.gain.exponentialRampToValueAtTime(.001,audio.currentTime+duration);
+        oscillator.connect(gain);gain.connect(audio.destination);
+        oscillator.start();oscillator.stop(audio.currentTime+duration);
+      }catch{}
+    }
+    function readFact(text){
+      if(quiet||!window.speechSynthesis)return;
+      speechSynthesis.cancel();
+      const speech=new SpeechSynthesisUtterance(text);speech.rate=.95;speechSynthesis.speak(speech);
+    }
+    function play(){
+      CosmicMatch.start({host:document.querySelector('#match'),demo:true,sound:tone,speak:readFact,
+        onExit:play,onComplete:play});
+      document.querySelector('.cm-tools a')?.remove();
+      const sound=document.createElement('button');sound.className='cm-sound';
+      const update=()=>{sound.textContent=quiet?'Sound off 🔇':'Sound on 🔊';sound.setAttribute('aria-pressed',String(!quiet));};
+      sound.onclick=()=>{quiet=!quiet;if(quiet&&window.speechSynthesis)speechSynthesis.cancel();update();};
+      update();document.querySelector('.cm-top').appendChild(sound);
+    }
+    play();
+  </script>
+</body>
+</html>
