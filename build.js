@@ -27,4 +27,7 @@ ${body}
 `;
 fs.writeFileSync(path.join(out, 'index.html'), page);
 for (const f of ['style.css', 'game.js']) fs.copyFileSync(path.join(src, f), path.join(out, f));
-console.log('Built dist/ (index.html, style.css, game.js)');
+// crew photos (optional): copy only the image files
+const crew = path.join(src, 'crew');
+if (fs.existsSync(crew)) fs.cpSync(crew, path.join(out, 'crew'), { recursive: true, filter: f => fs.statSync(f).isDirectory() || /\.(jpe?g|png|webp)$/i.test(f) });
+console.log('Built dist/ (index.html, style.css, game.js, crew photos)');

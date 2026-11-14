@@ -133,12 +133,12 @@ const ACCS = { none: 'None', glasses: 'Glasses', earrings: 'Earrings', necklace:
 const CMD_COLORS = ['#37d6ff', '#a77bff', '#ff7ac8', '#ffd84a', '#7fb2ff'];   // no green / slate / copper (teammates) or red (danger)
 const TEAM = [
   { id: 'cmd', name: 'Commander', role: 'Commander', job: 'pilot', perk: 'runs 2x faster', emblem: 'star', zone: 'work' },
-  { id: 'brian', name: 'Brian', role: 'Engineer', job: 'engineer', perk: 'easier repairs', emblem: 'gear', zone: 'work',
+  { id: 'brian', name: 'Brian', role: 'Engineer', job: 'engineer', perk: 'easier repairs', emblem: 'gear', zone: 'work', photo: 'crew/brian.jpg',
     color: '#a9b8ca', sash: '#4f5d70', edge: '#c9d4e0',
     look: { skin: '#f0cdb2', hair: 'short', hairColor: '#9a9187', beard: '#a8a096', smile: 2, acc: [] } },
-  { id: 'sidra', name: 'Sidra', role: 'Botanist', job: 'botanist', perk: 'grows 2x food', emblem: 'leaf', zone: 'green',
+  { id: 'sidra', name: 'Sidra', role: 'Botanist', job: 'botanist', perk: 'grows 2x food', emblem: 'leaf', zone: 'green', photo: 'crew/sidra.jpg',
     color: '#4be38a', look: { skin: '#a8714b', hair: 'hijab', hairColor: '#17171c', smile: 1, acc: ['necklace', 'pin'] } },
-  { id: 'quan', name: 'Quan', role: 'Geologist', job: 'geologist', perk: '2x science outside', emblem: 'rock', zone: 'eva',
+  { id: 'quan', name: 'Quan', role: 'Geologist', job: 'geologist', perk: '2x science outside', emblem: 'rock', zone: 'eva', photo: 'crew/quan.jpg',
     color: '#e08a4f', look: { skin: '#e9c29b', hair: 'swept', hairColor: '#15161a', smile: 1, acc: ['glasses'] } },
 ];
 const CMD_DEFAULT = { name: 'Commander', color: CMD_COLORS[0], look: { skin: SKIN[2], hair: 'short', hairColor: HAIR[1], smile: 1, acc: [] } };
@@ -153,8 +153,42 @@ function loadCommander() {
 function saveCommander() { try { localStorage.setItem('stormwatch.commander', JSON.stringify(CMD)); } catch (e) {} }
 const esc = s => String(s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 
-// Head-and-shoulders portrait as an inline SVG (64 x 64 units).
+// ---------- crew photos (optional) ----------
+// Put a photo at crew/brian.jpg, crew/sidra.jpg or crew/quan.jpg and the game turns it into
+// pixel art when it loads. Until a photo is there, the drawn portrait below is used instead.
+const PHOTO_PX = 40;   // pixel-art resolution: lower = chunkier pixels
+const PHOTOS = {};     // crew id -> pixelated photo (data URL)
+const HEADS = {};      // crew id -> image used for the helmet-off head in the scene
+function loadPhoto(id, src) {
+  const img = new Image();
+  img.onload = () => {
+    const n = PHOTO_PX, cv = document.createElement('canvas'); cv.width = cv.height = n;
+    const x = cv.getContext('2d'), s = Math.min(img.width, img.height);
+    x.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, n, n);   // centre square crop
+    const d = x.getImageData(0, 0, n, n);                                            // fewer colours = retro look
+    for (let i = 0; i < d.data.length; i += 4) for (let k = 0; k < 3; k++) d.data[i + k] = Math.round(d.data[i + k] / 255 * 7) / 7 * 255;
+    x.putImageData(d, 0, 0);
+    PHOTOS[id] = cv.toDataURL();
+    const h = new Image(); h.src = PHOTOS[id]; HEADS[id] = { img: h, photo: true };
+    if (S) { buildUI(); render(); }
+  };
+  img.src = src;   // a missing file just keeps the drawn portrait
+}
+TEAM.forEach(t => t.photo && loadPhoto(t.id, t.photo));
+// Image of a crew member's head for drawing on the canvas (photo if there is one, else the drawn portrait).
+function headFor(c) {
+  if (HEADS[c.id] && HEADS[c.id].photo) return HEADS[c.id];
+  const key = JSON.stringify([c.look, c.color]);
+  if (!HEADS[c.id] || HEADS[c.id].key !== key) {
+    const img = new Image(); img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(portrait(c, 128));
+    HEADS[c.id] = { img, key };
+  }
+  return HEADS[c.id];
+}
+
+// Head-and-shoulders portrait as an inline SVG (64 x 64 units), or the pixelated photo if there is one.
 function portrait(c, size = 40) {
+  if (PHOTOS[c.id]) return `<span class="portrait photo" style="width:${size}px;height:${size}px;border-color:${c.color}"><img src="${PHOTOS[c.id]}" alt="${esc(c.name)}"></span>`;
   const p = c.look, hc = p.hairColor, sk = p.skin, acc = p.acc || [], hijab = p.hair === 'hijab';
   const sash = c.sash || c.color, id = 'p' + Math.random().toString(36).slice(2, 8);
   const hair = {
@@ -176,7 +210,7 @@ function portrait(c, size = 40) {
   }[c.emblem];
   const face = hijab ? { rx: 10.5, ry: 12.5 } : { rx: 12, ry: 14 };
   const smile = p.smile === 2 ? 'M27 37 Q32 42 37 37' : 'M28.5 37.5 Q32 40 35.5 37.5';
-  return `<svg class="portrait" width="${size}" height="${size}" viewBox="0 0 64 64" aria-label="${esc(c.name)}">
+  return `<svg xmlns="http://www.w3.org/2000/svg" class="portrait" width="${size}" height="${size}" viewBox="0 0 64 64" aria-label="${esc(c.name)}">
     <defs><clipPath id="${id}"><circle cx="32" cy="32" r="31"/></clipPath><clipPath id="${id}b"><path d="M6 64 Q8 52 20 50 L44 50 Q56 52 58 64Z"/></clipPath></defs>
     <circle cx="32" cy="32" r="31" fill="#0a1424"/>
     <g clip-path="url(#${id})">
@@ -218,7 +252,8 @@ function newGame() {
     crew: TEAM.map(t => t.id === 'cmd'
       ? { ...t, name: CMD.name, color: CMD.color, look: { ...CMD.look, acc: [...CMD.look.acc] } }
       : { ...t, look: { ...t.look } }),
-    stats: { breaks: 0 }, fx: [], banner: null, shake: 0,
+    stats: { breaks: 0 }, fx: [], banner: null, shake: 0, meet: null,
+    cam: { z: 1, x: W / 2, y: H / 2, to: { z: 1, x: W / 2, y: H / 2 } },
   };
   S.crew.forEach((c, i) => Object.assign(c, { i, x: ZONES[c.zone].slot(i), y: ZONES[c.zone].floor, path: [], dir: 1, dose: 0, health: 100, out: false }));
   for (const k in S.sys) Object.assign(S.sys[k], { broken: false, repair: 0 });
@@ -289,7 +324,7 @@ function setLevel(k, d) {
 function render() {
   document.body.className = S.phase;
   $('#round').textContent = `Storm ${Math.min(S.round + 1, EVENTS.length)} / ${EVENTS.length}`;
-  $('#phase').textContent = { brief: 'STANDBY', calm: 'ALL CLEAR', warning: 'STORM INCOMING', storm: 'RADIATION STORM', debrief: 'DEBRIEF', end: 'MISSION OVER' }[S.phase];
+  $('#phase').textContent = { brief: 'STANDBY', meet: 'CREW BRIEFING', calm: 'ALL CLEAR', warning: 'STORM INCOMING', storm: 'RADIATION STORM', debrief: 'DEBRIEF', end: 'MISSION OVER' }[S.phase];
   const hps = playing() ? hoursPerSec(EVENTS[S.round]) : 1;
   $('#timer').textContent = !playing() ? '--' : S.phase === 'warning' ? Math.ceil(S.t * hps * 60) + ' min' : Math.ceil(S.t * hps) + ' h';
   $('#clock').textContent = clock(S.hours);
@@ -552,7 +587,7 @@ function intro() {
       <li>⏱️ Each second is <b>one hour</b> on the base. Working outside uses the most air and water.</li>
     </ul>
     <p class="src" id="src">${srcText}</p>
-    <button class="go" id="go" disabled>Begin mission ▶</button>`, startRound);
+    <button class="go" id="go" disabled>Begin mission ▶</button>`, meetCrew);
   $('#custom').onclick = customize;
   loaded = loaded || loadEvents();
   loaded.then(() => {
@@ -614,6 +649,45 @@ function applyCommander() {
   const c = S.crew[0];
   Object.assign(c, { name: CMD.name, color: CMD.color, look: { ...CMD.look, acc: [...CMD.look.acc] } });
   buildUI(); render();
+}
+
+// ---------- crew introduction: zoom to each astronaut, helmet off, speech bubble ----------
+const MEET_LINES = {
+  cmd: c => `${c.name === 'Commander' ? "I'm your Commander." : `I'm ${c.name}, your Commander.`} I move twice as fast, so send me when something breaks in the middle of a storm.`,
+  brian: () => `Brian, Engineer. When a machine goes down, I bring it back. Repairs are easier with me in the Workshop.`,
+  sidra: () => `Sidra, Botanist. Keep me in the Greenhouse and I'll grow twice the food.`,
+  quan: () => `Quan, Geologist. Send me outside and I'll bring back twice the science. Just get me inside before the storm hits!`,
+};
+let meetTimer;
+function meetCrew() {
+  $('#modal').classList.remove('show');
+  S.phase = 'meet'; S.meet = { i: -1 };
+  nextMeet();
+}
+function nextMeet() {
+  clearTimeout(meetTimer);
+  if (!S.meet) return;
+  const i = S.meet.i + 1;
+  if (i >= S.crew.length) return endMeet();
+  const c = S.crew[i];
+  S.meet = { i, c };
+  S.cam.to = { z: 2.6, x: c.x, y: c.y - 40 };
+  const el = $('#meet');
+  el.innerHTML = `<div class="who">${portrait(c, 72)}<div><b style="color:${c.color}">${esc(c.name)}</b><small>${c.role} · ${c.perk}</small></div></div>
+    <p>${esc(MEET_LINES[c.id](c))}</p>
+    <div class="btns"><button id="mskip">Skip intro</button><button id="mnext" class="go">${i === S.crew.length - 1 ? 'Start mission ▶' : 'Next ▶'}</button></div>`;
+  el.style.borderColor = c.color; el.className = 'show';
+  $('#mnext').onclick = nextMeet; $('#mskip').onclick = endMeet;
+  beep(620 + i * 70, 0.07, 'sine');
+  render();
+  meetTimer = setTimeout(nextMeet, 6000);
+}
+function endMeet() {
+  clearTimeout(meetTimer);
+  if (!S.meet) return;
+  S.meet = null; S.cam.to = { z: 1, x: W / 2, y: H / 2 };
+  $('#meet').className = '';
+  startRound();
 }
 
 // ---------- pointer input on the scene ----------
@@ -791,19 +865,34 @@ function drawAstro(c, x, y, ts, alpha = 1) {
   drawEmblem(c, x + 4.5 * sx, y - 34);
   g.strokeStyle = '#eef3f8'; g.lineWidth = 5;
   g.beginPath(); g.moveTo(x - 9, y - 34); g.lineTo(x - 14 + sw * 0.6, y - 20); g.moveTo(x + 9, y - 34); g.lineTo(x + 14 - sw * 0.6, y - 20); g.stroke();
-  circ(x, y - 50, 12); g.fillStyle = '#eef3f8'; g.fill();
-  // visor: the face shows through, then a tinted glass reflection
-  const vx = x + c.dir * 3, L = c.look;
-  g.fillStyle = '#16263a'; g.beginPath(); g.ellipse(vx, y - 50, 7, 6, 0, 0, 7); g.fill();
-  g.save(); g.beginPath(); g.ellipse(vx, y - 50, 7, 6, 0, 0, 7); g.clip();
-  if (L.hair === 'hijab') { g.fillStyle = L.hairColor; g.fillRect(vx - 7, y - 56, 14, 12); }
-  else { g.fillStyle = L.hairColor; g.fillRect(vx - 7, y - 57, 14, 4); }
-  g.fillStyle = L.skin; g.beginPath(); g.ellipse(vx + c.dir * 1, y - 49, 4.6, 4.8, 0, 0, 7); g.fill();
-  g.fillStyle = 'rgba(30,60,95,.35)'; g.fillRect(vx - 7, y - 56, 14, 12);
-  g.restore();
-  g.fillStyle = 'rgba(255,255,255,.75)'; circ(vx + c.dir * 4, y - 53, 1.3); g.fill();
+  if (S.meet && S.meet.c === c && alpha === 1) {
+    // crew introduction: helmet off, showing the photo or drawn portrait
+    const h = headFor(c);
+    g.save(); circ(x, y - 51, 13); g.fillStyle = '#0a1424'; g.fill(); g.clip();
+    if (h.img.complete && h.img.naturalWidth) {
+      g.imageSmoothingEnabled = !h.photo;
+      const w = h.img.naturalWidth;
+      if (h.photo) g.drawImage(h.img, x - 13, y - 64, 26, 26);
+      else g.drawImage(h.img, w * 14 / 64, w * 10 / 64, w * 36 / 64, w * 36 / 64, x - 13, y - 64, 26, 26);
+    }
+    g.restore(); g.imageSmoothingEnabled = true;
+    g.strokeStyle = c.color; g.lineWidth = 1.5; circ(x, y - 51, 13); g.stroke();
+    g.fillStyle = '#c9d2dc'; rr(x - 9, y - 40, 18, 4, 2); g.fill();   // suit neck ring
+  } else {
+    circ(x, y - 50, 12); g.fillStyle = '#eef3f8'; g.fill();
+    // visor: the face shows through, then a tinted glass reflection
+    const vx = x + c.dir * 3, L = c.look;
+    g.fillStyle = '#16263a'; g.beginPath(); g.ellipse(vx, y - 50, 7, 6, 0, 0, 7); g.fill();
+    g.save(); g.beginPath(); g.ellipse(vx, y - 50, 7, 6, 0, 0, 7); g.clip();
+    if (L.hair === 'hijab') { g.fillStyle = L.hairColor; g.fillRect(vx - 7, y - 56, 14, 12); }
+    else { g.fillStyle = L.hairColor; g.fillRect(vx - 7, y - 57, 14, 4); }
+    g.fillStyle = L.skin; g.beginPath(); g.ellipse(vx + c.dir * 1, y - 49, 4.6, 4.8, 0, 0, 7); g.fill();
+    g.fillStyle = 'rgba(30,60,95,.35)'; g.fillRect(vx - 7, y - 56, 14, 12);
+    g.restore();
+    g.fillStyle = 'rgba(255,255,255,.75)'; circ(vx + c.dir * 4, y - 53, 1.3); g.fill();
+  }
   g.lineCap = 'butt';
-  if (alpha === 1) {
+  if (alpha === 1 && !(S.meet && S.meet.c === c)) {
     txt(c.name, x, y - 70, 12, c.color, 'center', '"Segoe UI", sans-serif');
     g.fillStyle = '#081120'; g.fillRect(x - 16, y - 66, 32, 4);
     g.fillStyle = c.dose > 60 ? '#ff4d5e' : '#ffb938'; g.fillRect(x - 16, y - 66, 32 * Math.min(1, c.dose / 100), 4);
@@ -846,7 +935,11 @@ let lastTs = 0;
 function draw(ts) {
   const dt = Math.min(0.1, (ts - lastTs) / 1000) || 0; lastTs = ts;
   walkClock();
-  g.setTransform(2, 0, 0, 2, 0, 0);
+  // camera: eases toward its target (used by the crew introduction)
+  const cam = S.cam, ease = 1 - Math.pow(0.03, dt);
+  for (const k of ['z', 'x', 'y']) cam[k] += (cam.to[k] - cam[k]) * ease;
+  const cx = Math.max(W / 2 / cam.z, Math.min(W - W / 2 / cam.z, cam.x)), cy = Math.max(H / 2 / cam.z, Math.min(H - H / 2 / cam.z, cam.y));
+  g.setTransform(2 * cam.z, 0, 0, 2 * cam.z, 2 * (W / 2 - cam.z * cx), 2 * (H / 2 - cam.z * cy));
   if (S.shake > 0) { S.shake -= dt; g.translate((Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10); }
   drawSky(ts); drawGround(); drawSurface(ts); drawShaft();
   ['green', 'work', 'shelter'].forEach(k => drawRoom(k, ts));
