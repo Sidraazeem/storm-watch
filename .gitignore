@@ -1,5 +1,6 @@
 dist/
 dist-cosmic-match/
+dist-solar-reboot/
 .firebase/
 node_modules/
 *.log
