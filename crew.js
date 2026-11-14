@@ -5,8 +5,8 @@ let S; // game state (shared by all scripts)
 // ---------- the crew ----------
 // Three real team members plus the player's own customizable Commander.
 // Each role has a sash colour and an emblem: leaf (Botanist), ball bearing (Engineer), rock (Geologist), star (Commander).
-// Faces are cartoon avatars: the team's own pictures in crew/, and DiceBear "Avataaars" for the Commander
-// (and as a fallback for the team). DiceBear is bundled in vendor/dicebear.js so the game works offline.
+// Faces are DiceBear "Avataaars" cartoon avatars for all four. (A team member can still use a picture
+// instead: add `photo: 'crew/name.jpg'` to their entry below; see crew/README.md.) DiceBear is bundled in vendor/dicebear.js so the game works offline.
 // Avataaars design by Pablo Stanley (avataaars.com), free for personal and commercial use; DiceBear code MIT.
 const AV = {
   skin:    ['614335', 'ae5d29', 'd08b5b', 'edb98a', 'ffdbb4'],
@@ -23,13 +23,13 @@ const covered = L => L.top === 'hijab' || L.top === 'turban';
 const CMD_COLORS = ['#37d6ff', '#a77bff', '#ff7ac8', '#ffd84a', '#7fb2ff'];   // no green / slate / copper (teammates) or red (danger)
 const TEAM = [
   { id: 'cmd', name: 'Commander', role: 'Commander', job: 'pilot', perk: 'runs 2x faster', emblem: 'star', zone: 'work' },
-  { id: 'brian', name: 'Brian', role: 'Engineer', job: 'engineer', perk: 'easier repairs', emblem: 'bearing', zone: 'work', photo: 'crew/brian.jpg',
+  { id: 'brian', name: 'Brian', role: 'Engineer', job: 'engineer', perk: 'easier repairs', emblem: 'bearing', zone: 'work',
     color: '#a9b8ca', sash: '#4f5d70', edge: '#c9d4e0',
-    look: { skin: 'edb98a', top: 'shortFlat', hairColor: '9a9187', cover: '262e33', glasses: 'prescription01', glassesColor: '929598', beard: 'beardMedium', beardColor: 'd9d4cc', mood: 'smile' } },
-  { id: 'sidra', name: 'Sidra', role: 'Botanist', job: 'botanist', perk: 'grows 2x food', emblem: 'leaf', zone: 'green', photo: 'crew/sidra.jpg',
-    color: '#4be38a', look: { skin: 'd08b5b', top: 'hijab', hairColor: '2c1b18', cover: '262e33', glasses: 'round', glassesColor: 'd6b370', beard: 'none', mood: 'smile' } },
-  { id: 'quan', name: 'Quan', role: 'Geologist', job: 'geologist', perk: '2x science outside', emblem: 'rock', zone: 'eva', photo: 'crew/quan.jpg',
-    color: '#e08a4f', look: { skin: 'edb98a', top: 'shortWaved', hairColor: '2c1b18', cover: '262e33', glasses: 'wayfarers', glassesColor: '262e33', beard: 'none', mood: 'default' } },
+    look: { skin: 'edb98a', top: 'theCaesarAndSidePart', hairColor: 'a8a196', cover: '262e33', glasses: 'prescription01', glassesColor: '929598', beard: 'beardMedium', beardColor: 'e8e1e1', mood: 'default' } },
+  { id: 'sidra', name: 'Sidra', role: 'Botanist', job: 'botanist', perk: 'grows 2x food', emblem: 'leaf', zone: 'green',
+    color: '#4be38a', look: { skin: 'd08b5b', top: 'hijab', hairColor: '2c1b18', cover: '262e33', glasses: 'prescription02', glassesColor: 'd6b370', beard: 'none', mood: 'smile' } },
+  { id: 'quan', name: 'Quan', role: 'Geologist', job: 'geologist', perk: '2x science outside', emblem: 'rock', zone: 'eva',
+    color: '#e08a4f', look: { skin: 'edb98a', top: 'shaggy', hairColor: '2c1b18', cover: '262e33', glasses: 'prescription02', glassesColor: '262e33', beard: 'none', mood: 'default' } },
 ];
 const CMD_DEFAULT = { name: 'Commander', color: CMD_COLORS[0],
   look: { skin: 'd08b5b', top: 'shortFlat', hairColor: '4a312c', cover: '262e33', glasses: 'none', beard: 'none', mood: 'smile' } };
