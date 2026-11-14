@@ -1,0 +1,33 @@
+<title>Storm Watch</title>
+<link rel="stylesheet" href="style.css">
+
+<header>
+  <h1>STORM WATCH</h1>
+  <div class="status">
+    <span id="round">Storm 1 / 3</span>
+    <span id="phase" class="badge">STANDBY</span>
+    <span id="timer">--</span>
+    <span class="sci">★ <b id="science">0</b></span>
+    <button id="mute" title="Sound on/off">🔊</button>
+  </div>
+</header>
+
+<div id="stage">
+  <canvas id="scene" width="2400" height="1280"></canvas>
+  <div id="caption"></div>
+</div>
+
+<div id="crewbar"></div>
+
+<div id="sysbar">
+  <div class="power">
+    <span>⚡ POWER</span>
+    <b><span id="pwrUsed">0</span> / <span id="pwrMax">0</span> kW</b>
+    <div class="bar"><i id="pwrBar"></i></div>
+  </div>
+  <div id="systems"></div>
+</div>
+
+<div id="modal" class="modal"><div class="card" id="card"></div></div>
+
+<script src="game.js"></script>
