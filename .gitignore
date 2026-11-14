@@ -1,4 +1,7 @@
 dist/
+dist-cosmic-match/
+dist-solar-reboot/
+dist-greenhouse-guard/
 .firebase/
 node_modules/
 *.log
