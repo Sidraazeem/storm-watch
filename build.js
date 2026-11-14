@@ -26,7 +26,9 @@ ${body}
 </body>
 </html>
 `;
-fs.writeFileSync(path.join(out, 'index.html'), page);
+// cache-busting: a new ?v= on every build so browsers never mix old and new files
+const v = Date.now().toString(36);
+fs.writeFileSync(path.join(out, 'index.html'), page.replace(/(src|href)="(?!https?:|data:|#)([^"?]+\.(?:js|css))"/g, `$1="$2?v=${v}"`));
 for (const f of ['style.css', 'wow.css', 'sfx.js', 'learn.js', 'crew.js', 'scene.js', 'game.js']) fs.copyFileSync(path.join(src, f), path.join(out, f));
 // Greenhouse Guard mini-game (opened from the main game during severe storms) and its NASA media
 for (const f of ['greenhouse-guard.html', 'greenhouse-guard.css', 'greenhouse-action.js']) fs.copyFileSync(path.join(src, f), path.join(out, f));
