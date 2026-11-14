@@ -124,7 +124,7 @@ function clock(h) {
 
 // ---------- the crew ----------
 // Three real team members plus the player's own customizable Commander.
-// Each role has a sash colour and an emblem: leaf (Botanist), gear (Engineer), rock (Geologist), star (Commander).
+// Each role has a sash colour and an emblem: leaf (Botanist), ball bearing (Engineer), rock (Geologist), star (Commander).
 // `look` drives the portrait: skin, hair style (or hijab), hair/hijab colour, beard, accessories.
 const SKIN = ['#f6dcc6', '#ecc4a2', '#d7a479', '#b47a50', '#8a5634', '#5c3820'];
 const HAIR = ['#15161a', '#3b2618', '#6b4428', '#d9b46a', '#a8482a', '#a39a90', '#1f3a6b', '#6e2235'];
@@ -133,7 +133,7 @@ const ACCS = { none: 'None', glasses: 'Glasses', earrings: 'Earrings', necklace:
 const CMD_COLORS = ['#37d6ff', '#a77bff', '#ff7ac8', '#ffd84a', '#7fb2ff'];   // no green / slate / copper (teammates) or red (danger)
 const TEAM = [
   { id: 'cmd', name: 'Commander', role: 'Commander', job: 'pilot', perk: 'runs 2x faster', emblem: 'star', zone: 'work' },
-  { id: 'brian', name: 'Brian', role: 'Engineer', job: 'engineer', perk: 'easier repairs', emblem: 'gear', zone: 'work', photo: 'crew/brian.jpg',
+  { id: 'brian', name: 'Brian', role: 'Engineer', job: 'engineer', perk: 'easier repairs', emblem: 'bearing', zone: 'work', photo: 'crew/brian.jpg',
     color: '#a9b8ca', sash: '#4f5d70', edge: '#c9d4e0',
     look: { skin: '#f0cdb2', hair: 'short', hairColor: '#9a9187', beard: '#a8a096', smile: 2, acc: [] } },
   { id: 'sidra', name: 'Sidra', role: 'Botanist', job: 'botanist', perk: 'grows 2x food', emblem: 'leaf', zone: 'green', photo: 'crew/sidra.jpg',
@@ -204,7 +204,7 @@ function portrait(c, size = 40) {
   }[p.hair] || ['', ''];
   const emblem = {
     leaf: `<path d="M-2.6 2.4 Q-3 -2.6 2.8 -2.8 Q2.8 2.6 -2.6 2.4Z M-2.6 2.4 L1.5 -1.5" fill="#4be38a" stroke="#0b3a20" stroke-width=".6"/>`,
-    gear: `<g fill="#c9d4e0"><circle r="2.2"/><g stroke="#c9d4e0" stroke-width="1.3">${[0, 45, 90, 135].map(a => `<line x1="0" y1="-3.4" x2="0" y2="3.4" transform="rotate(${a})"/>`).join('')}</g><circle r="0.9" fill="#4f5d70"/></g>`,
+    bearing: `<g><circle r="3.4" fill="none" stroke="#c9d4e0" stroke-width="1"/><circle r="1.25" fill="none" stroke="#c9d4e0" stroke-width=".8"/>${[0, 60, 120, 180, 240, 300].map(a => `<circle r=".62" cx="${(2.3 * Math.cos(a * Math.PI / 180)).toFixed(2)}" cy="${(2.3 * Math.sin(a * Math.PI / 180)).toFixed(2)}" fill="#eef3f8"/>`).join('')}</g>`,
     rock: `<path d="M-3 2 L-2.4 -1 L-0.4 -2.6 L2.2 -1.6 L3 1.6 Z" fill="#9b8f84" stroke="#3a3029" stroke-width=".5"/><line x1="-0.5" y1="-0.5" x2="2.8" y2="-3.4" stroke="#e08a4f" stroke-width=".9"/>`,
     star: `<path d="M0 -3.2 L0.9 -1 L3.1 -1 L1.4 0.4 L2 2.7 L0 1.3 L-2 2.7 L-1.4 0.4 L-3.1 -1 L-0.9 -1Z" fill="${c.color}"/>`,
   }[c.emblem];
@@ -901,9 +901,12 @@ function drawAstro(c, x, y, ts, alpha = 1) {
 }
 
 function drawEmblem(c, x, y) {
-  g.fillStyle = '#0d1726'; circ(x, y, 3.6); g.fill();
+  g.fillStyle = '#0d1726'; circ(x, y, 4.2); g.fill();
   if (c.emblem === 'leaf') { g.fillStyle = '#4be38a'; g.beginPath(); g.ellipse(x, y, 2.6, 1.4, -0.7, 0, 7); g.fill(); }
-  else if (c.emblem === 'gear') { g.strokeStyle = '#c9d4e0'; g.lineWidth = 1; for (let a = 0; a < 4; a++) { const k = a * Math.PI / 4; g.beginPath(); g.moveTo(x - Math.cos(k) * 2.8, y - Math.sin(k) * 2.8); g.lineTo(x + Math.cos(k) * 2.8, y + Math.sin(k) * 2.8); g.stroke(); } g.fillStyle = '#c9d4e0'; circ(x, y, 1.6); g.fill(); }
+  else if (c.emblem === 'bearing') {   // ball bearing: outer ring, inner ring, balls between
+    g.strokeStyle = '#c9d4e0'; g.lineWidth = 0.9; circ(x, y, 3.3); g.stroke(); circ(x, y, 1.1); g.stroke();
+    g.fillStyle = '#eef3f8'; for (let a = 0; a < 6; a++) { circ(x + Math.cos(a * Math.PI / 3) * 2.2, y + Math.sin(a * Math.PI / 3) * 2.2, 0.55); g.fill(); }
+  }
   else if (c.emblem === 'rock') { g.fillStyle = '#b3a596'; g.beginPath(); g.moveTo(x - 2.6, y + 1.8); g.lineTo(x - 1.8, y - 1.2); g.lineTo(x + 0.6, y - 2.2); g.lineTo(x + 2.6, y + 1.8); g.fill(); }
   else { g.fillStyle = c.color; g.beginPath(); for (let i = 0; i < 10; i++) { const r = i % 2 ? 1.2 : 2.8, a = -Math.PI / 2 + i * Math.PI / 5; g.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); } g.fill(); }
 }

@@ -41,7 +41,7 @@ After storm 3 the player gets a Flight Readiness Rating (Cadet, Mission Speciali
 | Crew | Role | Sash and emblem | Perk |
 | --- | --- | --- | --- |
 | Commander (the player's own astronaut, customizable) | Commander | Player's choice of colour, star | Moves 2x faster |
-| Brian | Engineer | Slate grey, gear | Repair puzzle has 3 plugs instead of 4 |
+| Brian | Engineer | Slate grey, ball bearing | Repair puzzle has 3 plugs instead of 4 |
 | Sidra | Botanist | Green, leaf | Grows 2x food in the Greenhouse |
 | Quan | Geologist | Copper, rock | Earns 2x science outside |
 
