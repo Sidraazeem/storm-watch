@@ -167,3 +167,7 @@ body.debrief .fact, body.end .fact, body.brief .fact, body.prep .fact, body.cut 
 @media (max-width: 700px) {
   #chips { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 6px; padding-bottom: 4px; -webkit-overflow-scrolling: touch; } #chips .jchip { flex: none; }
 }
+
+/* Flare Swarm finale */
+.swarm { margin: 4px 0; padding-left: 18px; font-size: 13px; } .swarm li { margin: 2px 0; } .swarm a { color: var(--cyan); }
+.card p.big { font-size: 17px; }
