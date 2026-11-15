@@ -37,6 +37,11 @@ for (const f of ['cosmic-match.html', 'cosmic-match.css', 'cosmic-match.js', 'so
 // Leak Patrol (water recycler repair) and Scrubber Sprint (oxygen repair) share one script and stylesheet
 for (const f of ['leak-patrol.html', 'scrubber-sprint.html', 'life-support-arcade.js', 'life-support-arcade.css']) fs.copyFileSync(path.join(src, f), path.join(out, f));
 fs.cpSync(path.join(src, 'assets'), path.join(out, 'assets'), { recursive: true });
+// the mini-game pages get the same version tag, so a browser never runs an old mini-game script
+for (const f of fs.readdirSync(out).filter(f => f.endsWith('.html') && f !== 'index.html')) {
+  const p = path.join(out, f);
+  fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace(/(src|href)="(?!https?:|data:|#)([^"?]+\.(?:js|css))"/g, `$1="$2?v=${v}"`));
+}
 fs.cpSync(path.join(src, 'vendor'), path.join(out, 'vendor'), { recursive: true });   // DiceBear avatars (bundled for offline play)
 // crew photos (optional): copy only the image files
 const crew = path.join(src, 'crew');
