@@ -44,7 +44,7 @@
     document.removeEventListener('visibilitychange', active.visibility);
     active = null;
   }
-  function start({host, event, engineer = false, demo = false, solar = false, onRestored = () => {}, onComplete, onExit, sound = () => {}}) {
+  function start({host, event, engineer = false, demo = false, solar = false, onRestored = () => {}, onComplete, onExit, sound = () => {}, doneLabel}) {
     close();
     const a = {host, cells: createBoard(), relays: [0,0,0], latched: [false,false,false], seconds: 0,
       moves: 0, paused: false, done: false};
@@ -135,7 +135,7 @@
         onRestored({seconds:a.seconds,moves:a.moves});
         host.querySelector('.sr-alert').textContent = '● RESTORED'; host.querySelector('.sr-alert').classList.add('sr-restored');
         const result = host.querySelector('.sr-result'); result.hidden = false;
-        result.innerHTML = `<div class="sr-stars" aria-label="Three stars">★ ★ ★</div><p class="sr-eyebrow">YOU’RE A ${solar ? 'SOLAR' : 'SHIELD'} HERO!</p><h3>${solar ? 'POWER IS BACK!' : 'YOU FIXED IT!'}</h3><p>All 3 ${solar ? 'panels' : 'shields'} are on. Your crew says thank you!</p><p class="sr-takeaway">${isLinked ? `The Sun made a bright flash. ${event.mins} minutes after its peak, a NASA detector spotted fast particles. ${solar ? 'In our game, you reconnected the solar panel controls to power the base again!' : 'Our game crew needs shields when particles arrive!'}` : `NASA spotted a bright flash on the Sun. A flash and a particle storm are different things. Our crew practices being ready!`}</p><button id="sr-return">${demo ? 'Play again' : 'Back to my crew'} →</button>${demo ? '<a href="./">Play full Storm Watch</a>' : ''}`;
+        result.innerHTML = `<div class="sr-stars" aria-label="Three stars">★ ★ ★</div><p class="sr-eyebrow">YOU’RE A ${solar ? 'SOLAR' : 'SHIELD'} HERO!</p><h3>${solar ? 'POWER IS BACK!' : 'YOU FIXED IT!'}</h3><p>All 3 ${solar ? 'panels' : 'shields'} are on. Your crew says thank you!</p><p class="sr-takeaway">${isLinked ? `The Sun made a bright flash. ${event.mins} minutes after its peak, a NASA detector spotted fast particles. ${solar ? 'In our game, you reconnected the solar panel controls to power the base again!' : 'Our game crew needs shields when particles arrive!'}` : `NASA spotted a bright flash on the Sun. A flash and a particle storm are different things. Our crew practices being ready!`}</p><button id="sr-return">${doneLabel || (demo ? 'Play again' : 'Back to my crew')} →</button>${demo && !doneLabel ? '<a href="./">Play full Storm Watch</a>' : ''}`;
         result.querySelector('button').onclick = () => { const stats = {seconds:a.seconds,moves:a.moves}; close(); onComplete(stats); };
         result.querySelector('button').focus();
       }

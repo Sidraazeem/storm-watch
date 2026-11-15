@@ -38,10 +38,11 @@
       const speech=new SpeechSynthesisUtterance(text);speech.rate=.95;speechSynthesis.speak(speech);
     }
     const EMBED=new URLSearchParams(location.search).has('embed');
-    const tell=ok=>{try{parent.postMessage({source:'cosmic-match',ok},location.origin);}catch{}};
+    const tell=(ok,finished=false)=>{try{parent.postMessage({source:'cosmic-match',ok,finished},location.origin);}catch{}};
     function play(){
       CosmicMatch.start({host:document.querySelector('#match'),demo:!EMBED,sound:tone,speak:readFact,
-        onExit:EMBED?()=>tell(false):play,onComplete:EMBED?()=>tell(true):play});
+        onExit:EMBED?()=>tell(false):play,onComplete:EMBED?()=>tell(true):play,
+        onRestored:EMBED?()=>tell(true,true):undefined,doneLabel:EMBED?'Continue':undefined});
       document.querySelector('.cm-tools a')?.remove();
       const sound=document.createElement('button');sound.className='cm-sound';
       const update=()=>{sound.textContent=quiet?'Sound off 🔇':'Sound on 🔊';sound.setAttribute('aria-pressed',String(!quiet));};

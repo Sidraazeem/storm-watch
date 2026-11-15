@@ -4,7 +4,7 @@
   // Embedded in the main Storm Watch game: greenhouse-guard.html?embed=1&waves=1&health=80
   // waves = how many waves (1-3), health = starting garden health. The result is sent back to the game.
   const P=new URLSearchParams(location.search),EMBED=P.has('embed'),WAVES=Math.max(1,Math.min(3,Math.round(+P.get('waves'))||3)),START=Math.max(0,Math.min(100,Math.round(+(P.get('health')??100))||0));
-  if(EMBED){document.body.classList.add('gg-embed');$('.ga-intro small').textContent=WAVES===1?'One short wave. Then back to the base!':`${WAVES} short waves. Then back to the base!`;$('#gg-replay').textContent='Back to base →';}
+  if(EMBED){document.body.classList.add('gg-embed');$('.ga-intro small').textContent=WAVES===1?'One short wave. Then back to the base!':`${WAVES} short waves. Then back to the base!`;$('#gg-replay').textContent='Continue →';}
   const film=$('.gg-film'),canvas=$('#ga-particles'),ctx=canvas.getContext('2d'),stage=$('.ga-stage');
   let state,quiet=false,motion=!matchMedia('(prefers-reduced-motion: reduce)').matches,audio,bus,last=0,raf,hiddenPause=false,width=1,height=1;
   let best=0;try{best=+localStorage.getItem('greenhouse-best-v2')||0;}catch{}
@@ -52,7 +52,7 @@
     best=Math.max(best,state.score);try{localStorage.setItem('greenhouse-best-v2',String(best));}catch{}
     $('.gg-win-stars').textContent='★'.repeat(stars)+'☆'.repeat(3-stars);$('#ga-rating').textContent=stars===3?'GARDEN HERO!':stars===2?'STORM SURVIVOR!':'TRY A NEW STRATEGY!';
     $('#ga-summary').textContent=`${state.caught} streams caught · ${state.hits} plant hits · ${average}% garden health. Score ${state.score} · Best ${best}.`;
-    $('.gg-victory').hidden=false;sound('win');$('#gg-replay').focus();render();
+    $('.gg-victory').hidden=false;sound('win');$('#gg-replay').focus();render();if(EMBED)report(true);
   }
   function tick(dt){
     state.time+=dt;state.banner=Math.max(0,state.banner-dt);if(!state.banner)$('.ga-banner').textContent='';state.flash=state.flash.map(t=>Math.max(0,t-dt));state.burst=Math.max(0,state.burst-dt);state.charge=Math.max(0,state.charge-dt);
@@ -95,8 +95,8 @@
   stage.onpointerdown=e=>{if(e.target.closest('button')||state.phase==='intro')return;stage.setPointerCapture(e.pointerId);movePointer(e);};stage.onpointermove=e=>{if(e.buttons===1)movePointer(e);};
   stage.onkeydown=e=>{if(e.target.closest('button'))return;if(['ArrowLeft','ArrowRight',' '].includes(e.key)){e.preventDefault();if(e.key===' ')burst();else move(state.lane+(e.key==='ArrowLeft'?-1:1));}};
   document.querySelectorAll('[data-lane]').forEach(b=>b.onclick=()=>move(+b.dataset.lane));$('#ga-start').onclick=start;$('#ga-burst').onclick=burst;$('#ga-pause').onclick=pause;
-  $('#ga-reset').onclick=()=>{reset();$('#ga-start').focus();};$('#gg-replay').onclick=()=>{if(EMBED)return report();reset();start();};
-  function report(){const average=Math.round(state.health.reduce((a,b)=>a+b,0)/3);try{parent.postMessage({source:'greenhouse-guard',health:average,caught:state.caught,hits:state.hits,score:state.score},location.origin);}catch{}}
+  $('#ga-reset').onclick=()=>{reset();$('#ga-start').focus();};$('#gg-replay').onclick=()=>{if(EMBED)return report(false);reset();start();};
+  function report(finished=false){const average=Math.round(state.health.reduce((a,b)=>a+b,0)/3);try{parent.postMessage({source:'greenhouse-guard',finished,health:average,caught:state.caught,hits:state.hits,score:state.score},location.origin);}catch{}}
   $('#gg-sound').onclick=()=>{quiet=!quiet;if(bus)bus.gain.setValueAtTime(quiet?0:.6,audio.currentTime);$('#gg-sound').textContent=quiet?'Sound off 🔇':'Sound on 🔊';$('#gg-sound').setAttribute('aria-pressed',String(!quiet));};
   function syncMotion(){document.body.classList.toggle('gg-still',!motion);$('#gg-motion').textContent=motion?'Pause effects ⏸':'Play effects ▶';$('#gg-motion').setAttribute('aria-pressed',String(!motion));film.hidden=!motion;if(motion&&!document.hidden)film.play().catch(()=>{film.hidden=true;});else film.pause();}
   $('#gg-motion').onclick=()=>{motion=!motion;syncMotion();};document.addEventListener('visibilitychange',()=>{if(document.hidden&&['play','break'].includes(state.phase)){pause();hiddenPause=true;}else if(hiddenPause){feedback('Game paused while you were away. Press Resume when you’re ready.');hiddenPause=false;}syncMotion();});

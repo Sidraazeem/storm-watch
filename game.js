@@ -174,7 +174,7 @@ function newGame() {
   S = {
     round: 0, phase: 'brief', t: 0, dur: 1, I: 0, supply: 14, sel: null, drag: null, ptr: null, science: 0,
     tanks: { o2: TANK.o2 * START_FILL, h2o: TANK.h2o * START_FILL, food: TANK.food * START_FILL },
-    hours: 0, rate: { o2: 0, h2o: 0, food: 0 }, dry: false, garden: 100, gg: false,
+    hours: 0, rate: { o2: 0, h2o: 0, food: 0 }, dry: false, o2Fixes: 0, reading: false, garden: 100, gg: false,
     sys: { o2: { lvl: 2 }, h2o: { lvl: 2 }, farm: { lvl: 2 }, shield: { lvl: 0 } },
     crew: TEAM.map(t => t.id === 'cmd'
       ? { ...t, name: CMD.name, color: CMD.color, look: { ...CMD.look } }
@@ -196,7 +196,11 @@ const at = z => S.crew.filter(c => !c.out && !c.path.length && c.zone === z);
 const lvl = k => S.sys[k].broken ? 0 : S.sys[k].lvl;
 const used = () => Object.values(S.sys).reduce((a, s) => a + s.lvl * KW_PER_LEVEL, 0);
 const playing = () => ['calm', 'warning', 'storm'].includes(S.phase);
-const frozen = () => S.gg || S.paused;                 // a mini-game is open, or the player pressed pause
+const frozen = () => S.gg || S.paused || S.reading;    // a mini-game is open, the player pressed pause, or a fact card is open
+// Fact cards pause the base during play (see learn.js); they wait while a mini-game or repair puzzle is open.
+Learn.hooks.hold = () => playing();
+Learn.hooks.wait = () => !!S.gg || $('#modal').classList.contains('show');
+Learn.hooks.onHold = on => { S.reading = on; lastWalk = performance.now(); if (on) SFX.hush(); render(); };
 const once = k => S.flags[k] ? false : (S.flags[k] = true);
 
 // Caption at the top of the scene, read out over the "radio".
@@ -497,6 +501,11 @@ function tick() {
   render();
 }
 
+function spill(tank, kg, name) {
+  if (kg < 0.05) return;
+  S.tanks[tank] = Math.max(0, S.tanks[tank] - kg);
+  log(`Fixed, but ${kg.toFixed(1)} kg of ${name} was lost during the repair.`, 'warn', null);
+}
 function repaired(k) {
   S.sys[k].broken = false; S.sys[k].repair = 0; S.fixes++;
   log(`${SYSTEMS[k].name} machine repaired. Nice work!`, 'good'); SFX.play('fixed');
@@ -514,7 +523,20 @@ function openFix(k) {
     if (c) { orderMove(c, 'work'); S.pendingFix = k; log(`${c.name} is running to the Workshop to fix it!`, 'warn', null); }
     return;
   }
-  if (k === 'o2') return openMini('cm', ok => { if (ok) repaired('o2'); else log('The oxygen machine is still broken. Tap FIX to try again.', 'warn', null); });
+  // Oxygen: Scrubber Sprint and Cosmic Match take turns. Water: Leak Patrol.
+  // In the two quick games, a sloppy repair wastes a little of that supply (game setting, not a NASA number).
+  if (k === 'o2') {
+    const kind = S.o2Fixes % 2 ? 'cm' : 'ss';
+    return openMini(kind, r => {
+      if (!r) return log('The oxygen machine is still broken. Tap FIX to try again.', 'warn', null);
+      S.o2Fixes++; repaired('o2');
+      if (kind === 'ss') spill('o2', (100 - r.resource) / 100 * 1, 'oxygen');
+    });
+  }
+  if (k === 'h2o') return openMini('lp', r => {
+    if (!r) return log('The water recycler is still broken. Tap FIX to try again.', 'warn', null);
+    repaired('h2o'); spill('h2o', Math.max(0, 75 - r.resource) / 75 * 3, 'water');
+  });
   const n = at('work').some(c => c.job === 'engineer') || LV().hints ? 3 : 4;
   const plugs = [['#ff4d5e', '●'], ['#37d6ff', '▲'], ['#4be38a', '■'], ['#ffb938', '◆']].slice(0, n);
   const order = plugs.map((_, i) => i).sort(() => Math.random() - 0.5);
@@ -540,13 +562,17 @@ const MINI = {
   gg: { title: '🌱 GREENHOUSE GUARD', sub: 'Shield the plants from the storm', color: '#4be38a', big: false,
         src: () => `greenhouse-guard.html?embed=1&waves=${EVENTS[S.round].sev >= 2 && !LV().hints ? 2 : 1}&health=${Math.round(S.garden)}`, leave: 'Leave plants unprotected' },
   cm: { title: '🛰️ COSMIC MATCH', sub: 'Match the NASA pictures to reboot the oxygen machine', color: '#37d6ff', big: true, src: () => 'cosmic-match.html?embed=1', leave: 'Back to base' },
+  lp: { title: '💧 LEAK PATROL', sub: 'Seal the leaks to restart the water recycler', color: '#7fd8ff', big: false, src: () => 'leak-patrol.html?embed=1', leave: 'Back to base' },
+  ss: { title: '🫧 SCRUBBER SPRINT', sub: 'Trap the CO₂ to restart the air system', color: '#a7ffdc', big: false, src: () => 'scrubber-sprint.html?embed=1', leave: 'Back to base' },
   sr: { title: '⚡ SOLAR REBOOT', sub: 'Reconnect the solar panels', color: '#ffb938', big: true, src: () => 'solar-panels.html?embed=1', leave: 'Back to base' },
 };
-let miniDone = null;
+// A mini-game sends { finished: true } the moment it is won, and a second message when the player taps its
+// Continue button. miniResult keeps the finished result, so the button at the top right also counts it.
+let miniDone = null, miniResult = null;
 function openMini(kind, done) {
   if (S.gg) return;
   const m = MINI[kind];
-  S.gg = kind; miniDone = done; SFX.hush(); SFX.play('whoosh'); render();
+  S.gg = kind; miniDone = done; miniResult = null; SFX.hush(); SFX.play('whoosh'); render();
   // transition: a coloured iris closes over the base with the mini-game's name, then the game opens
   const warp = document.createElement('div');
   warp.id = 'warp'; warp.style.setProperty('--c', m.color);
@@ -558,7 +584,7 @@ function openMini(kind, done) {
     wrap.innerHTML = `<div class="ggbox" style="border-color:${m.color}"><div class="gghead"><b style="color:${m.color}">${m.title}</b><span>The base is paused</span><button id="ggleave">✕ ${m.leave}</button></div>
       <iframe src="${m.src()}" title="${m.title} mini-game"></iframe></div>`;
     document.body.appendChild(wrap);
-    $('#ggleave').onclick = () => closeMini(null);
+    $('#ggleave').onclick = () => closeMini(miniResult);
     warp.classList.add('out'); setTimeout(() => warp.remove(), 600);
   }, 950);
 }
@@ -569,8 +595,15 @@ function closeMini(result) {
 }
 addEventListener('message', e => {
   if (e.origin !== location.origin || !e.data || !S.gg) return;
-  const src = { 'greenhouse-guard': 'gg', 'cosmic-match': 'cm', 'solar-reboot': 'sr' }[e.data.source];
-  if (src === S.gg) closeMini(src === 'gg' ? e.data : e.data.ok);
+  const src = { 'greenhouse-guard': 'gg', 'cosmic-match': 'cm', 'solar-reboot': 'sr', 'leak-patrol': 'lp', 'scrubber-sprint': 'ss' }[e.data.source];
+  if (src !== S.gg) return;
+  const result = src === 'cm' || src === 'sr' ? e.data.ok : e.data;
+  if (e.data.finished) {                       // won, but still looking at the results screen
+    miniResult = result;
+    const b = $('#ggleave'); if (b) { b.textContent = 'Continue ▶'; b.classList.add('done'); }
+    return;
+  }
+  closeMini(miniResult || result);
 });
 function openGarden() {
   if (!canProtect() || S.gg) return;
@@ -733,7 +766,7 @@ function intro() {
     ${roster()}
     <div class="levels" id="levels">${Object.entries(LEVELS).map(([k, l]) => `<button data-l="${k}" class="${k === LEVEL ? 'on' : ''}"><b>${l.name}</b><small>${l.who}</small></button>`).join('')}</div>
     <ul class="how">
-      <li>🧑‍🚀 <b>Drag astronauts</b> between rooms. Outside they collect science ★ but have no protection.</li>
+      <li>🧑‍🚀 <b>Drag astronauts</b> between rooms (or tap one, then tap a room). Outside they collect science ★ but have no protection.</li>
       <li>🚨 When the alarm sounds, get everyone <b>down to the Storm Shelter</b>.</li>
       <li>⚡ Share your power between air, water, food and the shield. <b>Every choice costs something.</b></li>
       <li>📡 Stuck? <b>Call Mission Control</b>. The answer takes 2.6 seconds to come back from Earth!</li>
@@ -799,8 +832,10 @@ function endCut() {
 // ---------- pointer input on the scene ----------
 const toWorld = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.height * H]; };
 const zoneAt = (x, y) => Object.keys(ZONES).find(k => { const z = ZONES[k]; return x >= z.x && x <= z.x + z.w && y >= z.y - 10 && y <= z.y + z.h + 10; });
-const crewAt = (x, y) => S.crew.find(c => !c.out && Math.abs(x - c.x) < 28 && y > c.y - 84 && y < c.y + 14);
-const fixAt = (x, y) => Object.keys(SYSTEMS).find(k => S.sys[k].broken && Math.hypot(x - SYSTEMS[k].at[0], y - SYSTEMS[k].at[1]) < 30);
+// On a small screen the scene is shrunk, so tap targets grow to stay at least ~22 px wide under a finger.
+const reach = base => Math.max(base, 22 * W / cv.getBoundingClientRect().width);
+const crewAt = (x, y) => { const r = reach(28); return S.crew.filter(c => !c.out && Math.abs(x - c.x) < r && y > c.y - 56 - r && y < c.y - 14 + r).sort((a, b) => Math.abs(x - a.x) - Math.abs(x - b.x))[0]; };
+const fixAt = (x, y) => Object.keys(SYSTEMS).find(k => S.sys[k].broken && Math.hypot(x - SYSTEMS[k].at[0], y - SYSTEMS[k].at[1]) < reach(30));
 let downAt = null;
 
 cv.addEventListener('pointerdown', e => {
@@ -809,8 +844,8 @@ cv.addEventListener('pointerdown', e => {
   if (!playing() || frozen()) return;
   const [x, y] = toWorld(e), fk = fixAt(x, y), c = crewAt(x, y);
   if (fk) return openFix(fk);
-  if (canProtect() && Math.hypot(x - PROTECT_AT[0], y - PROTECT_AT[1]) < 34) return openGarden();
-  if (S.panelsDown && Math.hypot(x - REBOOT_AT[0], y - REBOOT_AT[1]) < 34) return openReboot();
+  if (canProtect() && Math.hypot(x - PROTECT_AT[0], y - PROTECT_AT[1]) < reach(34)) return openGarden();
+  if (S.panelsDown && Math.hypot(x - REBOOT_AT[0], y - REBOOT_AT[1]) < reach(34)) return openReboot();
   if (c) { S.drag = S.sel = c.id; S.ptr = [x, y]; downAt = [x, y]; cv.setPointerCapture(e.pointerId); SFX.play('select'); }
   else { const z = zoneAt(x, y); if (z && S.sel) { orderMove(S.crew.find(c => c.id === S.sel), z); S.sel = null; } }
   render();
@@ -827,7 +862,7 @@ cv.addEventListener('pointercancel', () => { S.drag = null; });
 
 // ---------- toolbar ----------
 $('#mute').onclick = () => { SFX.setMuted(!SFX.muted); $('#mute').textContent = SFX.muted ? '🔇' : '🔊'; };
-$('#pause').onclick = () => { if (!playing() || S.gg) return; S.paused = !S.paused; lastWalk = performance.now(); SFX.play('click'); if (S.paused) SFX.hush(); render(); };
+$('#pause').onclick = () => { if (!playing() || S.gg || S.reading) return; S.paused = !S.paused; lastWalk = performance.now(); SFX.play('click'); if (S.paused) SFX.hush(); render(); };
 $('#call').onclick = callHome;
 $('#allShelter').onclick = () => { S.crew.forEach(c => orderMove(c, 'shelter', true)); SFX.play('drop'); log('Everybody to the shelter, go go go!', 'warn', 'cmd'); };
 $('#srcbadge').onclick = Learn.sources;

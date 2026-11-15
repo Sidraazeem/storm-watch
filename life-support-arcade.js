@@ -38,6 +38,11 @@
     <div id="ls-feedback" role="status" aria-live="polite">${config.hint}</div><div class="ls-controls"><button id="ls-special">${config.action} <span>READY</span></button><button id="ls-pause">Pause</button><button id="ls-reset">Restart ↻</button></div>
     <details class="ls-notes"><summary>Real NASA life support · facts & credits</summary><p>${config.fact}</p><p><a href="https://www.nasa.gov/reference/environmental-control-and-life-support-systems-eclss/" target="_blank" rel="noopener">NASA’s Environmental Control and Life Support Systems ↗</a> · <a href="https://www.nasa.gov/reference/jsc-life-support-subsystems/" target="_blank" rel="noopener">NASA life-support research ↗</a></p><p>The backdrop is archived NASA/GSFC/SDO imagery of September 10, 2017. <a href="https://ccmc.gsfc.nasa.gov/DONKI/view/FLR/13098/-1" target="_blank" rel="noopener">DONKI flare record ↗</a> · <a href="assets/space/CREDITS.md" target="_blank" rel="noopener">Media credits ↗</a>.</p><p>The lunar-base failures, instant repairs, colored gas bubbles, resource percentages, filter capacity, and 12-second timing are fictional game mechanics, not measured NASA equipment performance or recorded damage from this flare. CO₂ capture is not conversion into O₂. Intended for ages 7–12; difficulty still needs playtesting with children.</p></details><a class="ls-other" href="${config.next}">${config.nextName}</a></section></div>
     <section class="ls-result" hidden aria-label="Mission results"><div class="ls-result-ring" aria-hidden="true"></div><div class="ls-stars">★ ★ ★</div><p class="ls-eyebrow">LIFE SUPPORT / RESCUE COMPLETE</p><h2 id="ls-rating">${config.final}</h2><p id="ls-summary"></p><div class="ls-result-icon">${config.icon}</div><p class="ls-takeaway">${config.fact}</p><strong id="ls-result-best"></strong><button id="ls-replay">Beat my score →</button><a href="${config.next}">${config.nextName}</a></section></div>`;
+  // Embedded in the main Storm Watch game: leak-patrol.html?embed=1 / scrubber-sprint.html?embed=1.
+  // The result goes back to the game when the round ends, and again when the player taps Continue.
+  const EMBED=new URLSearchParams(location.search).has('embed');
+  const tell=finished=>{try{parent.postMessage({source:water?'leak-patrol':'scrubber-sprint',ok:true,finished,resource:Math.round(state.resource),score:state.score},location.origin);}catch{}};
+  if(EMBED){document.body.classList.add('ls-embed');$('#ls-replay').textContent='Continue →';document.querySelectorAll('.ls-other,.ls-result a').forEach(a=>a.remove());}
   const film=$('.ls-film');film.muted=true;
   function sound(kind){
     try{
@@ -114,7 +119,7 @@
     state.phase='end';state.resource=Math.round(state.resource);const stars=state.resource>=65?3:state.resource>=30?2:1;best=Math.max(best,state.score);try{localStorage.setItem('storm-'+(water?'water':'air')+'-best',String(best));}catch{}
     $('.ls-stars').textContent='★'.repeat(stars)+'☆'.repeat(3-stars);$('#ls-rating').textContent=stars===3?config.final:stars===2?'RESCUE COMPLETE!':'TRY A NEW STRATEGY!';
     $('#ls-summary').textContent=water?`${state.sealed} leaks sealed · ${state.resource}% tank reserve · ${state.score} points.`:`${state.captured} CO₂ captured · ${state.oxygen} O₂ delivered · ${state.resource}% cabin air · ${state.score} points.`;
-    $('#ls-result-best').textContent='Best score: '+best;$('.ls-result').hidden=false;sound('win');$('#ls-replay').focus();
+    $('#ls-result-best').textContent='Best score: '+best;$('.ls-result').hidden=false;sound('win');$('#ls-replay').focus();if(EMBED)tell(true);
   }
   function tick(dt){
     state.effects=state.effects.filter(e=>{e.ttl-=dt;if(e.ttl<=0){e.node.remove();return false;}return true;});
@@ -153,7 +158,7 @@
   if(water){$('.ls-valves').innerHTML=Array.from({length:9},(_,i)=>`<button class="ls-valve" data-valve="${i}" style="left:${[16.67,50,83.33][i%3]}%;top:${[25,55,85][Math.floor(i/3)]}%"><span class="ls-valve-wheel">✚</span><span class="ls-jet" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span class="ls-valve-state">VALVE ${i+1}</span><span class="ls-tighten" aria-hidden="true">✓</span></button>`).join('');document.querySelectorAll('[data-valve]').forEach(b=>b.onclick=()=>seal(+b.dataset.valve));}
   function pause(){if(state.phase==='play'){state.phase='paused';$('#ls-pause').textContent='Resume';}else if(state.phase==='paused'){state.phase='play';$('#ls-pause').textContent='Pause';}render();}
   function syncMotion(){document.body.classList.toggle('ls-still',!motion);$('#ls-motion').textContent=motion?'Pause effects ⏸':'Play effects ▶';$('#ls-motion').setAttribute('aria-pressed',String(!motion));film.hidden=!motion;if(motion&&!document.hidden)film.play().catch(()=>{film.hidden=true;});else film.pause();}
-  $('#ls-start').onclick=start;$('#ls-special').onclick=special;$('#ls-pause').onclick=pause;$('#ls-reset').onclick=()=>{reset();$('#ls-start').focus();};$('#ls-replay').onclick=()=>{reset();start();};
+  $('#ls-start').onclick=start;$('#ls-special').onclick=special;$('#ls-pause').onclick=pause;$('#ls-reset').onclick=()=>{reset();$('#ls-start').focus();};$('#ls-replay').onclick=()=>{if(EMBED)return tell(false);reset();start();};
   $('#ls-sound').onclick=()=>{quiet=!quiet;if(bus)bus.gain.setValueAtTime(quiet?0:.6,audio.currentTime);$('#ls-sound').textContent=quiet?'Sound off 🔇':'Sound on 🔊';$('#ls-sound').setAttribute('aria-pressed',String(!quiet));};$('#ls-motion').onclick=()=>{motion=!motion;syncMotion();};
   document.addEventListener('visibilitychange',()=>{if(document.hidden&&state.phase==='play'){pause();feedback('Paused while you were away. Press Resume to continue.');}syncMotion();});
   $('.ls-console').addEventListener('keydown',e=>{if(e.code==='Space'&&!e.target.closest('button,a,summary')){e.preventDefault();special();}});

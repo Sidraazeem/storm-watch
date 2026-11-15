@@ -55,3 +55,13 @@ The linked DONKI record identifies the real flare. Controller failures, visible
 gas bubbles, instantaneous sealing, percentages, filter capacity, cooldowns, and
 game timing are fictional mechanics, not NASA measurements or documented damage
 from that event. Media sources and preparation are in `assets/space/CREDITS.md`.
+
+## Inside the main game
+
+Both games also open inside Storm Watch (`?embed=1`): **Leak Patrol** repairs a broken
+water recycler, and **Scrubber Sprint** takes turns with Cosmic Match to repair the
+oxygen machine. Embedded, the page hides its header, cinema panel, notes and links,
+the results button reads **Continue →**, and the result is posted to the main game
+(`{source, ok, finished, resource, score}`) when the round ends and again on Continue.
+A sloppy round wastes a little of that supply in the base's tank: up to 3 kg of water
+or 1 kg of oxygen (game settings, not NASA numbers). The standalone pages are unchanged.

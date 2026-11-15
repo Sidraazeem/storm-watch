@@ -92,7 +92,10 @@ const Learn = (() => {
   document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('.jchip'); if (b) { e.stopPropagation(); explain(b.dataset.term); } });
 
   // ---------- fact cards: pop up after something happens, then live in the Logbook ----------
-  let toastTimer, pending = [];
+  // During play a card pauses the base until the player taps "Got it", so nothing is missed while reading.
+  // The game sets these: hold() = pause for this card?  wait() = not now (a mini-game or puzzle is open)  onHold(on) = pause / resume.
+  const hooks = { hold: null, wait: null, onHold: null };
+  let toastTimer, waitTimer, pending = [];
   function flash(id, good = true) {
     const c = CARDS[id]; if (!c) return false;
     const isNew = !log.cards.includes(id);
@@ -103,13 +106,23 @@ const Learn = (() => {
   }
   function showNext() {
     if (document.getElementById('fact') || !pending.length) return;
+    if (hooks.wait && hooks.wait()) { clearTimeout(waitTimer); waitTimer = setTimeout(showNext, 600); return; }
+    const hold = !!(hooks.hold && hooks.hold());
     const { id, good, isNew } = pending.shift(), c = CARDS[id];
     const t = el(`<div class="ficon">${c.icon}</div><div class="fbody"><small>${isNew ? '★ NEW FACT CARD' : 'FACT CARD'} · ${log.cards.length}/${Object.keys(CARDS).length}</small>
-      <b>${c.title}</b><p>${c.text}</p><em>Source: ${c.src}</em></div><button aria-label="Close">✕</button>`, 'fact ' + (good ? 'good' : 'bad'));
-    t.id = 'fact'; document.body.appendChild(t);
-    const close = () => { clearTimeout(toastTimer); t.remove(); setTimeout(showNext, 300); };
+      <b>${c.title}</b><p>${c.text}</p><em>Source: ${c.src}</em>${hold ? '<i class="fpause">⏸ The base is paused while you read.</i>' : ''}</div>
+      <button aria-label="${hold ? 'Got it, keep playing' : 'Close'}">${hold ? 'Got it ▶' : '✕'}</button>`, 'fact ' + (good ? 'good' : 'bad') + (hold ? ' hold' : ''));
+    t.id = 'fact';
+    let shade = null;
+    if (hold) { shade = el('', 'factshade'); shade.id = 'factshade'; document.body.appendChild(shade); shade.appendChild(t); hooks.onHold && hooks.onHold(true); }
+    else document.body.appendChild(t);
+    const close = () => {
+      clearTimeout(toastTimer); t.remove();
+      if (shade) { shade.remove(); if (pending.length) return showNext(); hooks.onHold && hooks.onHold(false); return; }
+      setTimeout(showNext, 300);
+    };
     t.querySelector('button').onclick = close;
-    toastTimer = setTimeout(close, 11000);
+    if (hold) t.querySelector('button').focus(); else toastTimer = setTimeout(close, 11000);
     SFX.play(isNew ? 'badge' : 'card');
   }
 
@@ -167,6 +180,6 @@ const Learn = (() => {
     });
   }
 
-  return { GLOSSARY, CARDS, BADGES, chip, chips, explain, flash, award, logbook, sources, quiz, overlay, closeOverlay,
+  return { GLOSSARY, CARDS, BADGES, hooks, chip, chips, explain, flash, award, logbook, sources, quiz, overlay, closeOverlay,
     get log() { return log; }, save };
 })();

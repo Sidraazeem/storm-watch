@@ -45,7 +45,8 @@
     document.removeEventListener('visibilitychange',active.visibility);
     active=null;
   }
-  function start({host, demo=false, system='Oxygen', onRestored=()=>{}, onComplete, onExit, sound=()=>{}, speak=()=>{}}) {
+  function start({host, demo=false, system='Oxygen', onRestored=()=>{}, onComplete, onExit, sound=()=>{}, speak=()=>{}, doneLabel}) {
+    doneLabel=doneLabel||(demo?'Play again':'Back to my crew');   // embedded in the main game: 'Continue'
     close();
     const a={host,deck:makeDeck(),selected:[],matched:new Set(),timers:[],mode:'twins',busy:false,done:false,lastFact:null,peek:false,
       motion:!window.matchMedia('(prefers-reduced-motion: reduce)').matches,view:'flare'};
@@ -147,12 +148,12 @@
     function win(){
       const v=host.querySelector('.cm-victory');v.hidden=false;
       burst(65);
-      v.innerHTML=`<div class="cm-rescue-orbit" aria-hidden="true"></div><div class="cm-win-stars">★ ★ ★</div><p class="cm-kicker">SIGNAL RESTORED / CREW SAFE</p><h3>SPACE HERO!</h3><p>All 3 picture files are back.<br>${demo?'Your crew is cheering!':'Your system is working again!'}</p><div class="cm-discoveries">${records.map(r=>`<div>${pictures[r.id]}<span><b>${r.name}</b><small>${r.tag}</small></span></div>`).join('')}</div><p class="cm-win-note">One real day on the Sun. Three different signals!</p><button class="cm-again">${demo?'Play again':'Back to my crew'} →</button><button class="cm-review">See my discoveries</button>`;
+      v.innerHTML=`<div class="cm-rescue-orbit" aria-hidden="true"></div><div class="cm-win-stars">★ ★ ★</div><p class="cm-kicker">SIGNAL RESTORED / CREW SAFE</p><h3>SPACE HERO!</h3><p>All 3 picture files are back.<br>${demo?'Your crew is cheering!':'Your system is working again!'}</p><div class="cm-discoveries">${records.map(r=>`<div>${pictures[r.id]}<span><b>${r.name}</b><small>${r.tag}</small></span></div>`).join('')}</div><p class="cm-win-note">One real day on the Sun. Three different signals!</p><button class="cm-again">${doneLabel} →</button><button class="cm-review">See my discoveries</button>`;
       v.querySelector('.cm-again').onclick=()=>{close();onComplete();};
       v.querySelector('.cm-review').onclick=()=>{
         v.hidden=true;
         host.querySelector('.cm-fact').scrollIntoView({block:'nearest'});
-        const done=host.querySelector('#cm-restart');done.textContent=demo?'Play again ↻':'Back to my crew →';done.focus();
+        const done=host.querySelector('#cm-restart');done.textContent=doneLabel+(doneLabel==='Play again'?' ↻':' →');done.focus();
       };
       // Matched cards become discovery buttons when the child reviews the board.
       buttons.forEach((b,i)=>{b.disabled=false;b.onclick=()=>showFact(a.deck[i]);b.setAttribute('aria-label','Discover: '+records.find(r=>r.id===a.deck[i]).name);});
@@ -170,7 +171,7 @@
       message('Take a good look!',a.peek?'When you’re ready, tap Hide pictures to keep playing.':'Now find the matching pictures!');draw();
     };
     host.querySelector('.cm-read').onclick=()=>{if(a.lastFact)speak(a.lastFact.fact);};
-    host.querySelector('#cm-restart').onclick=()=>{const mode=a.mode;close();if(a.done){onComplete();return;}start({host,demo,system,onRestored,onComplete,onExit,sound,speak});if(mode==='memory')host.querySelector('[data-mode="memory"]').click();};
+    host.querySelector('#cm-restart').onclick=()=>{const mode=a.mode;close();if(a.done){onComplete();return;}start({host,demo,system,onRestored,onComplete,onExit,sound,speak,doneLabel});if(mode==='memory')host.querySelector('[data-mode="memory"]').click();};
     host.querySelector('.cm-close').onclick=()=>{close();onExit();};
     draw();buttons[0].focus();return a;
   }

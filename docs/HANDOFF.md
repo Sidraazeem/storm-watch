@@ -138,3 +138,10 @@ Both pull requests are merged, plus a full pass on gameplay, graphics, sound and
 - [ ] Fact-check pass by a second person on `learn.js` (every card names its source)
 - [ ] Add team photos to `crew/` if wanted
 - [ ] Record the demo video
+
+## Run 2 changes (Nov 14 evening)
+
+- **Fact cards pause the game.** During play a fact card opens in the middle of the screen, the base is paused, and it stays until the player taps **Got it ▶**. Cards wait while a mini-game or repair puzzle is open. Outside play (debrief, packing) they are still small pop-ups that close by themselves.
+- **Mini-game finish buttons.** Inside the main game every mini-game's results button now says **Continue →** (not "Play again"). Each game tells the main game the moment it is won, so the button at the top right changes to **Continue ▶** and also counts the result. Leaving before finishing still counts as not done.
+- **Leak Patrol and Scrubber Sprint are plugged in.** Water recycler broken → Leak Patrol. Oxygen machine broken → Scrubber Sprint and Cosmic Match take turns. A sloppy round loses a little water or oxygen (see `docs/WATER-AND-AIR-GAMES.md`).
+- **Phones.** The page no longer overflows sideways on a phone; cards, crew chips and the header fit; mini-games open full screen; tap targets in the scene grow on small screens; dragging an astronaut no longer scrolls the page; tap an astronaut (or their card) then tap a room also works. Tested in Chrome's phone emulation (390 x 844, touch) only: **still needs a check on a real phone**, in portrait and landscape.
