@@ -776,7 +776,7 @@ function debrief() {
     });
   if ($('#finish')) $('#finish').onclick = endGame;
   S.quizTotal++;
-  Learn.quiz($('#quiz'), ev, S.asked, ok => { if (ok) { S.quizRight++; S.science += 25; render(); } });
+  Learn.quiz($('#quiz'), ev, S.asked, ok => { if (ok) { S.quizRight++; S.science += 25; render(); } }, { cadet: 1, pilot: 2, commander: 3 }[LEVEL]);
   setTimeout(() => Learn.flash({ live: 'classes', 2023: 'speed', '2023b': 'speed', swarm: 'gannon', 2017: 'cells' }[ev.key] || 'apollo'), 1500);
   if (S.round === 1) setTimeout(() => Learn.flash('bones'), 14000);
 }

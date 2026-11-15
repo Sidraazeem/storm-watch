@@ -449,18 +449,38 @@ function drawLaunch(ts, t) {
 }
 function drawAurora(ts, t) {
   g.fillStyle = '#02030a'; g.fillRect(0, 0, W, H); g.fillStyle = '#fff'; cutStars.forEach(([x, y, r]) => { g.globalAlpha = 0.4 + 0.6 * Math.abs(Math.sin(ts / 800 + x)); g.fillRect(x, y, r, r); }); g.globalAlpha = 1;
-  const mx = 380, my = 330, mr = 170, k = Math.min(1, t / 3);
+  const mx = 330, my = 240, mr = 128, k = Math.min(1, t / 3);
   for (let i = 0; i < 46; i++) {                                     // shimmering glow all around the planet
-    const a = i / 46 * Math.PI * 2 + ts / 5000, wob = Math.sin(ts / 300 + i * 1.3) * 16 * k, r0 = mr + 4, r1 = mr + 26 * k + 34 * k * Math.abs(Math.sin(ts / 700 + i)) + wob;
+    const a = i / 46 * Math.PI * 2 + ts / 5000, wob = Math.sin(ts / 300 + i * 1.3) * 16 * k, r0 = mr + 4, r1 = mr + 20 * k + 26 * k * Math.abs(Math.sin(ts / 700 + i)) + wob;
     const ag = g.createLinearGradient(mx + Math.cos(a) * r0, my + Math.sin(a) * r0, mx + Math.cos(a) * r1, my + Math.sin(a) * r1);
     ag.addColorStop(0, `rgba(${i % 3 ? '150,90,255' : '90,255,190'},${0.7 * k})`); ag.addColorStop(1, 'rgba(120,90,255,0)');
     g.strokeStyle = ag; g.lineWidth = 26; g.beginPath(); g.moveTo(mx + Math.cos(a) * r0, my + Math.sin(a) * r0); g.lineTo(mx + Math.cos(a) * r1, my + Math.sin(a) * r1); g.stroke();
   }
   const mars = g.createRadialGradient(mx - 60, my - 60, 20, mx, my, mr); mars.addColorStop(0, '#f0906a'); mars.addColorStop(1, '#7c2f1c'); g.fillStyle = mars; circ(mx, my, mr); g.fill();
   g.save(); circ(mx, my, mr); g.clip(); g.fillStyle = 'rgba(70,20,10,.35)'; [[-50, -30, 60, 26], [40, 50, 70, 22], [-20, 90, 40, 14]].forEach(([a, b, w, h]) => { g.beginPath(); g.ellipse(mx + a, my + b, w, h, 0.3, 0, 7); g.fill(); });
-  g.fillStyle = 'rgba(255,255,255,.75)'; g.beginPath(); g.ellipse(mx, my - mr + 8, 60, 14, 0, 0, 7); g.fill(); g.fillStyle = `rgba(150,110,255,${0.25 * k})`; g.fillRect(mx - mr, my - mr, mr * 2, mr * 2); g.fillStyle = 'rgba(2,3,10,.5)'; circ(mx + 110, my + 20, mr + 20); g.fill(); g.restore();
-  const oa = ts / 1400; g.fillStyle = '#e4eaf1'; g.fillRect(mx + Math.cos(oa) * 250 - 5, my + Math.sin(oa) * 90 - 3, 10, 6); g.fillStyle = '#3d86f0'; g.fillRect(mx + Math.cos(oa) * 250 - 15, my + Math.sin(oa) * 90 - 2, 8, 4); g.fillRect(mx + Math.cos(oa) * 250 + 7, my + Math.sin(oa) * 90 - 2, 8, 4);
-  txt('MAVEN', mx + Math.cos(oa) * 250, my + Math.sin(oa) * 90 - 10, 10, '#9fc4ff', 'center');
+  g.fillStyle = 'rgba(255,255,255,.75)'; g.beginPath(); g.ellipse(mx, my - mr + 8, 46, 11, 0, 0, 7); g.fill(); g.fillStyle = `rgba(150,110,255,${0.25 * k})`; g.fillRect(mx - mr, my - mr, mr * 2, mr * 2); g.fillStyle = 'rgba(2,3,10,.5)'; circ(mx + 110, my + 20, mr + 20); g.fill(); g.restore();
+  const oa = ts / 1400, ox = mx + Math.cos(oa) * 200, oy = my + Math.sin(oa) * 70; g.fillStyle = '#e4eaf1'; g.fillRect(ox - 5, oy - 3, 10, 6); g.fillStyle = '#3d86f0'; g.fillRect(ox - 15, oy - 2, 8, 4); g.fillRect(ox + 7, oy - 2, 8, 4);
+  txt('MAVEN', ox, oy - 10, 10, '#9fc4ff', 'center');
+  txt('MAVEN\'S CLOSE-UP VIEW', mx, my - mr - 44, 11, '#b9a6ff', 'center');
+  // the Moon in front: your crew on the horizon. From here Mars (about 390 million km away in Sept 2017) is only a red dot.
+  const dot = [560, 452];
+  g.setLineDash([4, 6]); g.strokeStyle = 'rgba(255,150,110,.35)'; g.lineWidth = 1;
+  g.beginPath(); g.moveTo(dot[0], dot[1]); g.lineTo(mx + mr * 0.7, my - mr * 0.7); g.moveTo(dot[0], dot[1]); g.lineTo(mx + mr * 0.7, my + mr * 0.7); g.stroke(); g.setLineDash([]);
+  g.fillStyle = '#ff7a52'; g.shadowColor = '#ff7a52'; g.shadowBlur = 8; circ(dot[0], dot[1], 2.4); g.fill(); g.shadowBlur = 0;
+  txt('Mars from the Moon:', dot[0], dot[1] + 20, 11, '#ffb49a', 'center'); txt('a tiny red dot, about', dot[0], dot[1] + 34, 11, '#ffb49a', 'center'); txt('390 million km away', dot[0], dot[1] + 48, 11, '#ffb49a', 'center');
+  const MX = 250, MY = 780, RX = 430, RY = 250, ground = x => MY - RY * Math.sqrt(Math.max(0, 1 - ((x - MX) / RX) ** 2));
+  const mg = g.createLinearGradient(0, MY - RY, 0, H); mg.addColorStop(0, '#9aa0ab'); mg.addColorStop(0.15, '#5d626d'); mg.addColorStop(1, '#2a2d34');
+  g.fillStyle = mg; g.beginPath(); g.ellipse(MX, MY, RX, RY, 0, 0, 7); g.fill();
+  g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 1.5; g.beginPath(); g.ellipse(MX, MY, RX, RY, 0, Math.PI * 1.05, Math.PI * 1.95); g.stroke();
+  [[90, 600, 22], [330, 590, 16], [200, 620, 12], [420, 625, 10]].forEach(([x, y, r]) => { g.fillStyle = 'rgba(0,0,0,.18)'; g.beginPath(); g.ellipse(x, y, r, r * 0.3, 0, 0, 7); g.fill(); });
+  const crew = S.crew.filter(c => !c.out);
+  crew.forEach((c, i) => {
+    const x = crew.length === 1 ? 250 : 110 + i * 300 / (crew.length - 1), y = ground(x) + 4;
+    g.fillStyle = 'rgba(0,0,0,.3)'; g.beginPath(); g.ellipse(x, y + 2, 11, 3, 0, 0, 7); g.fill();
+    const dir = c.dir, path = c.path; c.dir = 1; c.path = []; g.save(); g.translate(x, y); g.scale(0.85, 0.85); drawAstro(c, 0, 0, ts); g.restore(); c.dir = dir; c.path = path;
+    txt(c.name, x, y + 18, 11, c.color, 'center');
+  });
+  txt(crew.length === 4 ? 'YOUR WHOLE CREW MADE IT' : `${crew.length} OF 4 CREW MADE IT`, MX, 628, 12, '#e3f1ff', 'center');
   g.globalAlpha = Math.min(1, t / 1.5);
   txt('SEPTEMBER 2017', 640, 150, 20, '#ffb938', 'left', '"Orbitron", sans-serif');
   txt('THE WHOLE PLANET GLOWED', 640, 192, 27, '#fff', 'left', '"Orbitron", sans-serif');
