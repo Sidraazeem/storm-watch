@@ -27,14 +27,27 @@ const CAMPAIGN = [
     title: 'The Sneaky Medium Flare', sev: 1.2, calm: 26, warn: 20, storm: 28,
     fact: 'This was only a medium (M class) flare, but it still sent a radiation storm toward Earth and the Moon. Size is not everything: where a flare points matters too.',
     saved: { cls: 'M4.2', peak: '2023-05-09T18:58Z', region: 13296, loc: 'N17W32', sepTime: '2023-05-09T23:15Z', sepInst: 'GOES-P: SEISS >10 MeV' } },
-  { key: '2024', flrID: '2024-05-11T01:10:00-FLR-001', from: '2024-05-11', to: '2024-05-11',
-    title: 'The Gannon Storm', sev: 1.6, calm: 26, warn: 16, storm: 30, cme: 'Over 1,200 km every second (NASA DONKI)',
-    fact: 'This flare was part of a chain of eruptions in May 2024 that caused the strongest geomagnetic storm at Earth in over 20 years. People saw auroras much farther south than usual.',
-    saved: { cls: 'X5.8', peak: '2024-05-11T01:23Z', region: 13664, loc: 'S17W47', sepTime: '2024-05-11T02:10Z', sepInst: 'GOES-P: SEISS >100 MeV' } },
+  // Storm 3 idea from Quan (PR #3): the August 2023 storms from sunspot region 13386. The X1.5 flare of Aug 7
+  // is the one NASA DONKI links to a radiation storm at GOES.
+  { key: '2023b', flrID: '2023-08-07T20:30:00-FLR-001', from: '2023-08-07', to: '2023-08-08',
+    title: 'The Edge-of-the-Sun Flare', sev: 1.4, calm: 26, warn: 16, storm: 30,
+    fact: 'This X flare erupted right at the edge of the Sun, two days after an X1.6 flare from the same sunspot group. Even from the edge, its particles reached the satellites near Earth a few hours later.',
+    saved: { cls: 'X1.5', peak: '2023-08-07T20:46Z', region: 13386, loc: 'N11W90', sepTime: '2023-08-08T01:00Z', sepInst: 'GOES-P: SEISS >10 MeV', link: 'https://ccmc.gsfc.nasa.gov/DONKI/view/FLR/26403/-1' } },
   { key: '2017', flrID: '2017-09-10T15:35:00-FLR-001', from: '2017-09-10', to: '2017-09-10',
     title: 'The X8.2 Monster', sev: 2.2, calm: 24, warn: 13, storm: 36, cme: 'Over 2,300 km every second (NASA DONKI)',
     fact: 'One of the biggest flares of its solar cycle. It reached all the way to Mars, where NASA\'s Curiosity rover measured surface radiation double the normal level and the MAVEN spacecraft saw the whole planet glow.',
     saved: { cls: 'X8.2', peak: '2017-09-10T16:06Z', region: 12673, loc: 'S08W88', sepTime: '2017-09-10T16:25Z', sepInst: 'GOES13: SEM/EPS >100 MeV' } },
+  // Finale idea from Quan (PR #3): several flares back to back. Built on a real sequence: in May 2024 sunspot region 13664
+  // fired 7 X-class flares in four days (NASA DONKI). The game plays four of them in a row with a short break between.
+  { key: 'swarm', title: 'The Flare Swarm', from: '2024-05-08', to: '2024-05-12', calm: 24, flareCalm: 8,
+    cme: 'Over 1,200 km every second for the last one (NASA DONKI)',
+    fact: 'In May 2024 one sunspot group, region 13664, fired seven X-class flares in just four days. Together they caused the strongest storm at Earth in over 20 years, and people saw the northern lights much farther south than usual.',
+    swarm: [
+      { flrID: '2024-05-08T04:37:00-FLR-001', sev: 1.1, warn: 12, storm: 14, saved: { cls: 'X1.0', peak: '2024-05-08T05:09Z', region: 13664, loc: 'S22W10', sepTime: '2024-05-10T13:35Z', sepInst: 'GOES-P: SEISS >10 MeV', link: 'https://ccmc.gsfc.nasa.gov/DONKI/view/FLR/30551/-1' } },
+      { flrID: '2024-05-09T08:45:00-FLR-001', sev: 1.4, warn: 10, storm: 15, saved: { cls: 'X2.2', peak: '2024-05-09T09:13Z', region: 13664, loc: 'S20W25', sepTime: '2024-05-10T13:35Z', sepInst: 'GOES-P: SEISS >10 MeV', link: 'https://ccmc.gsfc.nasa.gov/DONKI/view/FLR/30605/-1' } },
+      { flrID: '2024-05-10T06:27:00-FLR-001', sev: 1.7, warn: 9, storm: 16, saved: { cls: 'X3.9', peak: '2024-05-10T06:54Z', region: 13664, loc: 'S18W37', sepTime: '2024-05-10T13:35Z', sepInst: 'GOES-P: SEISS >10 MeV', link: 'https://ccmc.gsfc.nasa.gov/DONKI/view/FLR/30666/-1' } },
+      { flrID: '2024-05-11T01:10:00-FLR-001', sev: 2.0, warn: 8, storm: 20, saved: { cls: 'X5.8', peak: '2024-05-11T01:23Z', region: 13664, loc: 'S17W47', sepTime: '2024-05-11T02:10Z', sepInst: 'GOES-P: SEISS >100 MeV', link: 'https://ccmc.gsfc.nasa.gov/DONKI/view/FLR/30711/-1' } },
+    ] },
 ];
 // More real storms for Endless mode (saved from NASA DONKI: strongest X flare of each year that sent particles to GOES).
 const EXTRA = [
@@ -64,7 +77,13 @@ function makeEvent(c, d, fromNasa) {
   return ev;
 }
 
-let EVENTS = CAMPAIGN.map(c => makeEvent(c, c.key === 'live' ? SAVED_LIVE : c.saved, false));
+function makeSwarm(c, flares, fromNasa) {
+  const list = flares.map((d, i) => makeEvent({ ...c.swarm[i], key: c.key, title: c.title }, d, fromNasa));
+  return { ...list[list.length - 1], ...c, flares: list, fromNasa };
+}
+let EVENTS = CAMPAIGN.map(c => c.swarm ? makeSwarm(c, c.swarm.map(f => f.saved), false) : makeEvent(c, c.key === 'live' ? SAVED_LIVE : c.saved, false));
+// The flare being played right now (one of the swarm's flares during the finale).
+const cur = () => { const e = EVENTS[S.round]; return e.flares ? e.flares[Math.min(S.flare || 0, e.flares.length - 1)] : e; };
 
 async function getJSON(path) {
   const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 7000);
@@ -94,11 +113,12 @@ async function loadEvents() {
     try {
       const range = c.key === 'live' ? `startDate=${iso(start)}&endDate=${iso(now)}` : `startDate=${c.from}&endDate=${c.to}`;
       const [flrs, seps] = await Promise.all([getJSON('FLR?' + range), getJSON('SEP?' + range)]);
+      if (c.swarm) return makeSwarm(c, c.swarm.map(s => { const f = flrs.find(f => f.flrID === s.flrID); if (!f) throw new Error('no flare'); return pick(f, seps); }), true);
       const flr = c.key === 'live' ? flrs.sort((a, b) => mUnits(b.classType) - mUnits(a.classType))[0] : flrs.find(f => f.flrID === c.flrID);
       if (!flr) throw new Error('no flare');
       return makeEvent(c, pick(flr, seps), true);
     } catch (e) {
-      return makeEvent(c, c.key === 'live' ? SAVED_LIVE : c.saved, false);
+      return c.swarm ? makeSwarm(c, c.swarm.map(f => f.saved), false) : makeEvent(c, c.key === 'live' ? SAVED_LIVE : c.saved, false);
     }
   }));
 }
@@ -150,7 +170,7 @@ const BACKGROUND = 1.369 / 24 / 10;
 const severe = ev => ev.sev >= 1.5;
 const GARDEN_DMG = 0.3;   // % garden health lost per second per unit of storm intensity, unprotected
 const PROTECT_AT = [505, 330];
-const canProtect = () => S.phase === 'storm' && !S.ggDone && severe(EVENTS[S.round]);
+const canProtect = () => S.phase === 'storm' && !S.ggDone && severe(cur());
 function clock(h) {
   const m = Math.floor(h * 60);
   return `Day ${Math.floor(m / 1440) + 1} · ${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
@@ -248,8 +268,8 @@ function setLevel(k, d) {
 
 function render() {
   document.body.className = S.phase + (S.paused ? ' paused' : '') + (LV().hints ? ' cadet' : '');
-  const ev = EVENTS[Math.min(S.round, EVENTS.length - 1)];
-  $('#round').textContent = S.endless ? `Endless · Storm ${S.round + 1}` : `Storm ${Math.min(S.round + 1, EVENTS.length)} / ${EVENTS.length}`;
+  const ev = S.round < EVENTS.length ? cur() : EVENTS[EVENTS.length - 1], sw = EVENTS[S.round] && EVENTS[S.round].flares;
+  $('#round').textContent = sw && S.phase !== 'debrief' ? `Finale · Flare ${(S.flare || 0) + 1} / ${sw.length}` : S.endless ? `Endless · Storm ${S.round + 1}` : `Storm ${Math.min(S.round + 1, EVENTS.length)} / ${EVENTS.length}`;
   $('#phase').textContent = { brief: 'STANDBY', meet: 'CREW BRIEFING', prep: 'PACKING', cut: 'IN FLIGHT', calm: 'ALL CLEAR', warning: 'STORM INCOMING', storm: 'RADIATION STORM', debrief: 'DEBRIEF', end: 'MISSION OVER' }[S.phase];
   const hps = playing() ? hoursPerSec(ev) : 1, mins = S.t * hps * 60;
   $('#timer').textContent = !playing() ? '--' : S.phase === 'warning' ? (mins >= 120 ? (mins / 60).toFixed(1) + ' h' : Math.ceil(mins) + ' min') : Math.ceil(S.t * hps) + ' h';
@@ -327,17 +347,22 @@ function setPhase(p, dur, banner, sub) { S.phase = p; S.t = S.dur = dur; if (ban
 
 function startRound() {
   const ev = EVENTS[S.round];
+  S.flare = 0;
   S.stats = { breaks: 0, hours: 0, use: { o2: 0, h2o: 0, food: 0 }, split: 0, garden0: S.garden, shieldH: 0, caught: [], partsUsed: false };
   S.ggDone = false; S.hint = null; S.pendingFix = null;
   setPhase('calm', (ev.calm || 25) * LV().calm, 'ALL CLEAR', S.round ? `Get ready for storm ${S.round + 1}` : 'Collect science while it is calm');
   $('#modal').classList.remove('show', 'fixing'); $('#dossier').className = '';
   // solar panels unfold: put the machines back to how they were set before the storm, as far as power allows
-  if (S.preLvl) { S.supply = S.panelsDown ? 10 : 14; for (const k of ['o2', 'h2o', 'farm']) while (S.sys[k].lvl < S.preLvl[k] && used() + KW_PER_LEVEL <= S.supply) S.sys[k].lvl++; S.preLvl = null; }
+  restorePower();
   SFX.ambience('calm'); SFX.play('allclear');
   log(S.panelsDown ? 'All clear, but the solar panels are offline. Tap the yellow REBOOT bubble to bring power back.'
     : S.round ? 'All clear. Check your supplies and collect science before the next storm.'
     : 'Welcome to the Moon! Send crew outside to collect science stars while it is calm.', 'good');
   render();
+}
+
+function restorePower() {
+  if (S.preLvl) { S.supply = S.panelsDown ? 10 : 14; for (const k of ['o2', 'h2o', 'farm']) while (S.sys[k].lvl < S.preLvl[k] && used() + KW_PER_LEVEL <= S.supply) S.sys[k].lvl++; S.preLvl = null; }
 }
 
 // Context-aware pointer for new players (always on in Cadet level, first storm in the others).
@@ -380,7 +405,7 @@ function chatter(dt) {
 function tick() {
   walkClock();
   if (!playing() || frozen()) return;
-  const dt = DT * SPEED, ev = EVENTS[S.round], L = LV();
+  const dt = DT * SPEED, ev = cur(), L = LV();
   S.t -= dt;
 
   // power: solar arrays fold into safe mode during the storm, and can stay offline after a big one
@@ -488,12 +513,20 @@ function tick() {
       setPhase('storm', ev.storm, 'RADIATION STORM', 'Stay in the shelter. Fix what breaks.'); S.shake = 0.9;
       SFX.ambience('storm'); SFX.play('stormhit'); $('#dossier').className = 'mini';
       const outside = active.filter(c => c.zone !== 'shelter' || c.path.length);
-      S.stats.caught = outside.map(c => c.name);
+      S.stats.caught = [...new Set([...S.stats.caught, ...outside.map(c => c.name)])];
       outside.forEach(c => emote(c, '😱', 2.5));
       if (!outside.length) { log('Everyone is in the shelter. Great work, Commander!', 'good'); Learn.flash('shelter'); S.science += 10; S.fx.push({ x: 600, y: 520, text: '★+10 ALL SAFE', t: 1.8, color: '#4be38a', size: 20 }); }
       else { log(`The storm has hit! ${outside.map(c => c.name).join(' and ')} ${outside.length > 1 ? 'are' : 'is'} not in the shelter yet!`, 'bad'); Learn.flash(outside.some(c => c.y <= SURF + 2) ? 'outside' : S.cargo.vest ? 'vest' : 'shelter', false); }
       if (severe(ev)) setTimeout(() => S.phase === 'storm' && !S.ggDone && log('Severe storm! Radiation is hitting the greenhouse plants. Tap the green PROTECT bubble!', 'bad'), 5000);
     } else {
+      const sw = EVENTS[S.round].flares;
+      if (sw && S.flare < sw.length - 1) {          // Flare Swarm: the next flare from the same sunspot is already on its way
+        S.flare++; restorePower();
+        setPhase('calm', EVENTS[S.round].flareCalm * L.calm, `FLARE ${S.flare + 1} OF ${sw.length}`, 'Same sunspot, bigger flare. Get ready!');
+        SFX.ambience('calm'); $('#dossier').className = '';
+        log(`That was flare ${S.flare} of ${sw.length}. The same sunspot is firing again! Fix what broke and stay close to the shelter.`, 'warn');
+        render(); return;
+      }
       if ((S.endless || S.round < EVENTS.length - 1) && (severe(ev) || ev.key === '2023')) S.panelsDown = true;   // big storms leave the panels needing a reboot
       debrief();
     }
@@ -560,7 +593,7 @@ function openFix(k) {
 // Each one runs in its own frame and reports back when finished. The base is paused meanwhile.
 const MINI = {
   gg: { title: '🌱 GREENHOUSE GUARD', sub: 'Shield the plants from the storm', color: '#4be38a', big: false,
-        src: () => `greenhouse-guard.html?embed=1&waves=${EVENTS[S.round].sev >= 2 && !LV().hints ? 2 : 1}&health=${Math.round(S.garden)}`, leave: 'Leave plants unprotected' },
+        src: () => `greenhouse-guard.html?embed=1&waves=${cur().sev >= 2 && !LV().hints ? 2 : 1}&health=${Math.round(S.garden)}`, leave: 'Leave plants unprotected' },
   cm: { title: '🛰️ COSMIC MATCH', sub: 'Match the NASA pictures to reboot the oxygen machine', color: '#37d6ff', big: true, src: () => 'cosmic-match.html?embed=1', leave: 'Back to base' },
   lp: { title: '💧 LEAK PATROL', sub: 'Seal the leaks to restart the water recycler', color: '#7fd8ff', big: false, src: () => 'leak-patrol.html?embed=1', leave: 'Back to base' },
   ss: { title: '🫧 SCRUBBER SPRINT', sub: 'Trap the CO₂ to restart the air system', color: '#a7ffdc', big: false, src: () => 'scrubber-sprint.html?embed=1', leave: 'Back to base' },
@@ -661,13 +694,30 @@ function stormPanel(ev) {
     ${ev.cme ? `<dt>Gas cloud</dt><dd>${ev.cme} ${Learn.chip('cme', 'CME')}</dd>` : ''}</dl>
     <p class="src">${ev.fromNasa ? '● Live from NASA DONKI' : '○ Saved NASA DONKI data'}${ev.link ? ` · <a href="${ev.link}" target="_blank" rel="noopener">see the NASA record</a>` : ''}</p></div>`;
 }
+function swarmPanel(ev) {
+  const when = t => t ? t.slice(5, 10).replace('-', '/') + ' ' + t.slice(11, 16) + ' UTC' : '(none recorded)';
+  return `<div class="storm"><p><b>Four real X-class flares from sunspot region ${ev.region}, one after another:</b></p>
+    <ul class="swarm">${ev.flares.map(f => `<li><b>${f.cls}</b> ${f.date}, ${f.peak.slice(11, 16)} UTC · particles reached GOES ${when(f.sepTime)}${f.link ? ` · <a href="${f.link}" target="_blank" rel="noopener">record</a>` : ''}</li>`).join('')}</ul>
+    ${ev.cme ? `<dl><dt>Gas cloud</dt><dd>${ev.cme} ${Learn.chip('cme', 'CME')}</dd></dl>` : ''}
+    <p class="src">${ev.fromNasa ? '● Live from NASA DONKI' : '○ Saved NASA DONKI data'} · Finale idea by Quan</p></div>`;
+}
+function finaleIntro() {
+  const ev = EVENTS[S.round + 1];
+  S.phase = 'brief';
+  showCard(`<h2>⚠️ FINAL CHALLENGE: THE FLARE SWARM</h2>
+    <p class="big">In May 2024, one sunspot group fired <b>seven X-class flares in four days</b>. Four of them are heading for your base, one after another.</p>
+    <ul class="how"><li>🔥 Each flare is bigger than the one before.</li><li>⏱️ You get only a few seconds between flares to fix machines and turn the power back up.</li><li>🛡️ Keep your crew close to the shelter!</li></ul>
+    <p class="src">Real data: NASA DONKI flares ${ev.flares.map(f => f.cls).join(', ')} from region ${ev.region}. Finale idea by Quan.</p>
+    <button class="go" id="go">Bring it on ▶</button>`, () => { S.round++; startRound(); });
+  SFX.say('Final challenge, Commander. Four flares from the same sunspot, one after another. Keep your crew close to the shelter.', 'capcom', true);
+}
 function showDossier(ev) { const d = $('#dossier'); d.innerHTML = `<h4>🛰️ STORM TRACKER</h4>${stormPanel(ev)}`; d.className = 'show'; }
 
 function debrief() {
   const ev = EVENTS[S.round];
   S.phase = 'debrief'; S.I = 0; S.hint = null; $('#dossier').className = '';
   const worst = Math.max(...S.crew.map(c => c.dose));
-  const last = !S.endless && S.round === EVENTS.length - 1;
+  const last = !S.endless && S.round === EVENTS.length - 1, aurora = !S.endless && ev.key === '2017';
   SFX.ambience('off'); SFX.play('allclear'); SFX.say('The storm has passed. Stand by for your debrief.', 'capcom', true);
   Learn.award('first');
   // "today's choices, tomorrow's costs": the trade-off report
@@ -684,24 +734,25 @@ function debrief() {
     <p>Highest crew dose so far: <b>${Math.round(worst * 10)} mSv</b> ${Learn.chip('dose', 'mSv')} · NASA's career limit for astronauts is 600 mSv.</p>
     <h3>${ev.mins != null ? 'THIS REALLY HAPPENED' : 'REAL FLARE, PRACTICE STORM'}: ${ev.title.toUpperCase()}</h3>
     <div class="real">${ev.fact}</div>
-    ${stormPanel(ev)}
+    ${ev.flares ? swarmPanel(ev) : stormPanel(ev)}
     <div class="quiz" id="quiz"></div>
     <h3>YOUR CHOICES AND WHAT THEY COST</h3>
     <ul class="costs">${costs.map(c => `<li>${c}</li>`).join('')}</ul>
     <p class="life">In these <b>${Math.round(S.stats.hours)} hours</b> your crew breathed <b>${S.stats.use.o2.toFixed(1)} kg</b> of oxygen,
       drank <b>${S.stats.use.h2o.toFixed(1)} kg</b> of water and ate <b>${S.stats.use.food.toFixed(1)} kg</b> of food.
       <small>Rates from NASA's Life Support BVAD.</small></p>
-    <button class="go" id="go">${last ? 'One more thing… ▶' : 'Next storm ▶'}</button>
+    <button class="go" id="go">${aurora ? 'One more thing… ▶' : last ? 'See your rating ▶' : 'Next storm ▶'}</button>
     ${S.endless ? '<button id="finish">Finish mission</button>' : ''}`,
     () => {
-      if (last) return startCut('aurora');
+      if (aurora) return startCut('aurora');
+      if (last) return endGame();
       if (S.endless && S.round === EVENTS.length - 1) addEndlessStorm();
       S.round++; startRound();
     });
   if ($('#finish')) $('#finish').onclick = endGame;
   S.quizTotal++;
   Learn.quiz($('#quiz'), ev, S.asked, ok => { if (ok) { S.quizRight++; S.science += 25; render(); } });
-  setTimeout(() => Learn.flash({ live: 'classes', 2023: 'speed', 2024: 'gannon', 2017: 'cells' }[ev.key] || 'apollo'), 1500);
+  setTimeout(() => Learn.flash({ live: 'classes', 2023: 'speed', '2023b': 'speed', swarm: 'gannon', 2017: 'cells' }[ev.key] || 'apollo'), 1500);
   if (S.round === 1) setTimeout(() => Learn.flash('bones'), 14000);
 }
 
@@ -826,6 +877,7 @@ function endCut() {
   if (!S.cut) return;
   const type = S.cut.type; S.cut = null;
   if (type === 'launch') { startRound(); setTimeout(() => Learn.flash('packing'), 4000); }
+  else if (!S.endless && S.round < EVENTS.length - 1) finaleIntro();
   else endGame();
 }
 

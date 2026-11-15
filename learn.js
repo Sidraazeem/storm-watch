@@ -154,6 +154,7 @@ const Learn = (() => {
   // ---------- debrief quiz: one question per storm ----------
   function questionFor(ev, asked) {
     const pool = [
+      ev.key === 'swarm' && { id: 'swarm', q: 'In May 2024, how many X-class flares did one sunspot group fire in four days?', a: ['Seven', 'One', 'Fifty'], why: 'NASA DONKI lists seven X flares from region 13664 between May 8 and May 11, 2024. Big sunspots can fire again and again.' },
       ev.mins != null && { id: 'warn' + ev.key, q: `In real life, how long after this flare did the radiation arrive?`, a: [`About ${ev.mins >= 120 ? Math.round(ev.mins / 60) + ' hours' : ev.mins + ' minutes'}`, 'About 3 days', 'A whole month'], why: 'The fastest particles race from the Sun in minutes to hours. That is all the warning a crew gets.' },
       ev.key === '2017' && { id: 'aurora', q: 'What did this storm do at Mars?', a: ['Lit up an aurora 25 times brighter than ever seen there', 'Made it rain', 'Melted the ice caps'], why: 'NASA\'s MAVEN spacecraft watched the whole planet glow, and Curiosity measured double the radiation on the ground.' },
       ev.key === '2024' && { id: 'gannon', q: 'What did people on Earth see during this storm?', a: ['Auroras much farther south than usual', 'Two suns', 'A solar eclipse'], why: 'The May 2024 storm was the strongest at Earth in over 20 years.' },
