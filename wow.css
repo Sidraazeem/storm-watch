@@ -171,3 +171,7 @@ body.debrief .fact, body.end .fact, body.brief .fact, body.prep .fact, body.cut 
 /* Flare Swarm finale */
 .swarm { margin: 4px 0; padding-left: 18px; font-size: 13px; } .swarm li { margin: 2px 0; } .swarm a { color: var(--cyan); }
 .card p.big { font-size: 17px; }
+
+/* badge checklist */
+.badges div.new { animation: pulse .6s infinite alternate; border-color: #fff; }
+.newbadge { background: #1a1508; border: 2px solid var(--amber); border-radius: 10px; padding: 6px 10px; }

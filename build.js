@@ -35,7 +35,7 @@ for (const f of ['greenhouse-guard.html', 'greenhouse-guard.css', 'greenhouse-ac
 // Cosmic Match (oxygen reboot) and Solar Reboot (solar panels) also open inside the main game
 for (const f of ['cosmic-match.html', 'cosmic-match.css', 'cosmic-match.js', 'solar-panels.html', 'shield-repair.css', 'shield-repair.js', 'shield-showcase.css', 'shield-showcase.js']) fs.copyFileSync(path.join(src, f), path.join(out, f));
 // Leak Patrol (water recycler repair) and Scrubber Sprint (oxygen repair) share one script and stylesheet
-for (const f of ['leak-patrol.html', 'scrubber-sprint.html', 'life-support-arcade.js', 'life-support-arcade.css']) fs.copyFileSync(path.join(src, f), path.join(out, f));
+for (const f of ['leak-patrol.html', 'scrubber-sprint.html', 'life-support-arcade.js', 'life-support-arcade.css', 'shield-sync.html', 'shield-sync.js', 'shield-sync.css']) fs.copyFileSync(path.join(src, f), path.join(out, f));
 fs.cpSync(path.join(src, 'assets'), path.join(out, 'assets'), { recursive: true });
 // the mini-game pages get the same version tag, so a browser never runs an old mini-game script
 for (const f of fs.readdirSync(out).filter(f => f.endsWith('.html') && f !== 'index.html')) {

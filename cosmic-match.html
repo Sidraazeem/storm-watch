@@ -40,7 +40,7 @@
     const EMBED=new URLSearchParams(location.search).has('embed');
     const tell=(ok,finished=false)=>{try{parent.postMessage({source:'cosmic-match',ok,finished},location.origin);}catch{}};
     function play(){
-      CosmicMatch.start({host:document.querySelector('#match'),demo:!EMBED,sound:tone,speak:readFact,
+      CosmicMatch.start({host:document.querySelector('#match'),demo:!EMBED,system:new URLSearchParams(location.search).get('system')||'Oxygen',sound:tone,speak:readFact,
         onExit:EMBED?()=>tell(false):play,onComplete:EMBED?()=>tell(true):play,
         onRestored:EMBED?()=>tell(true,true):undefined,doneLabel:EMBED?'Continue':undefined});
       document.querySelector('.cm-tools a')?.remove();

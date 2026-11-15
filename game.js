@@ -137,6 +137,9 @@ const SYSTEMS = {
   shield: { name: 'Shield', icon: '🛡️', tank: null,   at: [600, 455] },
 };
 const KW_PER_LEVEL = 2, WALK = 110;
+// Which machine has its planned breakdown in which storm: water (Leak Patrol), oxygen (Scrubber Sprint),
+// shield (Shield Sync), grow lights (Cosmic Match), then oxygen again in the finale (Cosmic Match).
+const SHOWCASE = { live: 'h2o', 2023: 'o2', '2023b': 'shield', 2017: 'farm', swarm: 'o2' };
 
 // ---------- life support: real NASA consumption rates ----------
 // kg per crew member per day, from NASA's Life Support Baseline Values and Assumptions Document
@@ -157,7 +160,7 @@ const H2O_PER_O2 = 18 / 16;
 // Tank sizes (kg) and machine output per power level (kg per hour). Game settings, sized so that
 // power level 2 roughly keeps up with 4 crew working inside.
 const TANK = { o2: 12, h2o: 46, food: 38 };
-const MAKE = { o2: 0.075, h2o: 0.32, farm: 0.09, farmer: 0.075 };
+const MAKE = { o2: 0.075, h2o: 0.32, farm: 0.10, farmer: 0.09 };
 // Time scale: 1 game second = 1 hour on the base. During the warning countdown the clock slows
 // down so that the countdown covers the real warning time from NASA's records.
 const warnMins = ev => ev.mins != null ? ev.mins : 30;
@@ -182,7 +185,7 @@ const CARGO = {
   h2o:   { icon: '💧', name: 'Water crate',      cost: 1, max: 4, tip: '+8 kg of water. Water also makes your oxygen.' },
   o2:    { icon: '💨', name: 'Oxygen tank',      cost: 1, max: 4, tip: '+2.5 kg of oxygen, ready to breathe.' },
   food:  { icon: '🥫', name: 'Food crate',       cost: 1, max: 4, tip: '+7 kg of food.' },
-  parts: { icon: '🔧', name: 'Spare parts kit',  cost: 2, max: 1, tip: 'The first breakdown in every storm is fixed instantly.' },
+  parts: { icon: '🔧', name: 'Spare parts kit',  cost: 2, max: 1, tip: 'The first surprise breakdown in every storm is fixed instantly.' },
   vest:  { icon: '🦺', name: 'Radiation vests',  cost: 2, max: 1, tip: 'Crew caught outside the shelter soak up less radiation. Tested on Artemis I.' },
   sci:   { icon: '🔬', name: 'Science kit',      cost: 2, max: 1, tip: 'Crew outside collect science stars 50% faster.' },
   batt:  { icon: '🔋', name: 'Backup battery',   cost: 2, max: 1, tip: '+2 kW of power while the solar panels are folded.' },
@@ -194,7 +197,7 @@ function newGame() {
   S = {
     round: 0, phase: 'brief', t: 0, dur: 1, I: 0, supply: 14, sel: null, drag: null, ptr: null, science: 0,
     tanks: { o2: TANK.o2 * START_FILL, h2o: TANK.h2o * START_FILL, food: TANK.food * START_FILL },
-    hours: 0, rate: { o2: 0, h2o: 0, food: 0 }, dry: false, o2Fixes: 0, reading: false, garden: 100, gg: false,
+    hours: 0, rate: { o2: 0, h2o: 0, food: 0 }, dry: false, o2Fixes: 0, minis: {}, cmFor: null, reading: false, garden: 100, gg: false,
     sys: { o2: { lvl: 2 }, h2o: { lvl: 2 }, farm: { lvl: 2 }, shield: { lvl: 0 } },
     crew: TEAM.map(t => t.id === 'cmd'
       ? { ...t, name: CMD.name, color: CMD.color, look: { ...CMD.look } }
@@ -208,6 +211,7 @@ function newGame() {
   S.crew.forEach((c, i) => Object.assign(c, { i, x: ZONES[c.zone].slot(i), y: ZONES[c.zone].floor, path: [], dir: 1, dose: 0, health: 100, out: false }));
   for (const k in S.sys) Object.assign(S.sys[k], { broken: false, repair: 0 });
   EVENTS = EVENTS.slice(0, CAMPAIGN.length);
+  Learn.reset();
   buildUI();
   render();
 }
@@ -278,6 +282,7 @@ function render() {
   $('#pwrUsed').textContent = used(); $('#pwrMax').textContent = S.supply;
   $('#pwrBar').style.width = Math.min(100, used() / S.supply * 100) + '%';
   $('#science').textContent = Math.floor(S.science);
+  $('#logbtn').textContent = `📖 Logbook · 🏅 ${Learn.log.badges.length}/${Object.keys(Learn.BADGES).length}`;
   $('#pause').textContent = S.paused ? '▶' : '⏸';
   $('#allShelter').hidden = !(LV().hints && (S.phase === 'warning' || S.phase === 'storm'));
   $('#call').disabled = !playing() || !!S.call || performance.now() < S.callAt;
@@ -409,7 +414,7 @@ function tick() {
   S.t -= dt;
 
   // power: solar arrays fold into safe mode during the storm, and can stay offline after a big one
-  S.supply = S.phase === 'storm' ? 10 + (S.cargo.batt ? 2 : 0) : S.panelsDown ? 10 : 14;
+  S.supply = S.phase === 'storm' ? 10 + (S.cargo.batt ? 2 : 0) + (L.hints ? 2 : 0) : S.panelsDown ? 10 : 14;   // Cadet level keeps a little more storm power
   let shed = false;
   for (const k of ['farm', 'h2o', 'o2', 'shield']) while (used() > S.supply && S.sys[k].lvl > 0) { S.sys[k].lvl--; shed = true; }
   if (shed) { log('Less solar power now. Some machines were turned down: check your power!', 'warn', null); SFX.play('powerdn'); }
@@ -421,7 +426,7 @@ function tick() {
   const active = S.crew.filter(c => !c.out);
 
   // supplies, in real kg, at NASA BVAD rates (see BVAD above)
-  const h = dt * hoursPerSec(ev), T = S.tanks;
+  const h = dt * Math.min(1, hoursPerSec(ev)), T = S.tanks;   // a very long real warning (days) must not fast-forward the base and eat the supplies
   S.hours += h; S.stats.hours += h;
   const use = { o2: 0, h2o: 0, food: 0 };            // kg per hour for the whole crew
   active.forEach(c => { const r = BVAD[activity(c)]; for (const k in use) use[k] += r[k] / 24 * L.use; });
@@ -449,7 +454,7 @@ function tick() {
   });
 
   // storm breaks things
-  if (S.phase === 'storm' && Math.random() < 0.05 * ev.sev * L.brk * dt) {
+  if (S.phase === 'storm' && S.stats.breaks < (L.hints ? 2 : 3) && Math.random() < 0.05 * ev.sev * L.brk * dt) {   // at most 2 or 3 breakdowns per storm
     const ok = Object.keys(S.sys).filter(k => !S.sys[k].broken && S.sys[k].lvl > 0);
     if (ok.length) {
       const k = ok[Math.floor(Math.random() * ok.length)];
@@ -463,6 +468,15 @@ function tick() {
         if (once('zap')) Learn.flash('zap', false);
       }
     }
+  }
+  // One planned breakdown per storm, so every player meets each repair game once in a mission
+  // (game design, not NASA data). Surprise breakdowns above still happen on top.
+  const planned = !S.endless && SHOWCASE[EVENTS[S.round].key];
+  if (planned && S.phase === 'storm' && !S.stats.planned && S.t < S.dur * 0.7 && (!EVENTS[S.round].flares || S.flare === 1) && !S.sys[planned].broken) {
+    S.stats.planned = true; S.stats.breaks++; S.shake = 0.4; SFX.play('break');
+    S.sys[planned].broken = true; S.sys[planned].repair = 0;
+    log(`${SYSTEMS[planned].name} machine knocked out! Tap the red FIX bubble.`, 'bad');
+    if (once('zap')) Learn.flash('zap', false);
   }
   // slow automatic repair while someone is in the Workshop (the mini-game is much faster)
   const broken = Object.keys(S.sys).find(k => S.sys[k].broken);
@@ -541,10 +555,12 @@ function spill(tank, kg, name) {
 }
 function repaired(k) {
   S.sys[k].broken = false; S.sys[k].repair = 0; S.fixes++;
+  // whoever ran over to do the repair goes straight back to safety if a storm is on
+  S.crew.forEach(c => { if (c.backTo && !c.out && S.phase !== 'calm' && !Object.values(S.sys).some(x => x.broken)) { orderMove(c, c.backTo, true); speak(c, 'Fixed! Heading back.'); c.backTo = null; } else if (S.phase === 'calm') c.backTo = null; });
   log(`${SYSTEMS[k].name} machine repaired. Nice work!`, 'good'); SFX.play('fixed');
   const [x, y] = SYSTEMS[k].at; S.fx.push({ x, y, text: '✔ FIXED', t: 1.5, color: '#4be38a', size: 20 });
   for (let i = 0; i < 14; i++) S.parts.push({ x, y, vx: rnd(-80, 80), vy: rnd(-90, 10), t: 0.8, life: 0.8, color: '75,227,138', size: 2.5 });
-  Learn.flash({ o2: 'oxygen', h2o: 'water', farm: 'salad', shield: 'shelter' }[k]);
+  Learn.flash({ o2: 'oxygen', h2o: 'water', farm: 'salad', shield: 'backgnd' }[k]);
 }
 
 // ---------- repairs ----------
@@ -553,13 +569,13 @@ function openFix(k) {
   if (!S.sys[k].broken || !playing() || S.gg) return;
   if (!at('work').length) {
     const c = S.crew.find(c => !c.out && c.job === 'engineer') || S.crew.find(c => !c.out && c.job === 'pilot') || S.crew.find(c => !c.out);
-    if (c) { orderMove(c, 'work'); S.pendingFix = k; log(`${c.name} is running to the Workshop to fix it!`, 'warn', null); }
+    if (c) { if (c.zone !== 'work') c.backTo = c.zone; orderMove(c, 'work'); S.pendingFix = k; log(`${c.name} is running to the Workshop to fix it!`, 'warn', null); }
     return;
   }
   // Oxygen: Scrubber Sprint and Cosmic Match take turns. Water: Leak Patrol.
   // In the two quick games, a sloppy repair wastes a little of that supply (game setting, not a NASA number).
   if (k === 'o2') {
-    const kind = S.o2Fixes % 2 ? 'cm' : 'ss';
+    const kind = S.o2Fixes % 2 ? 'cm' : 'ss'; S.cmFor = null;
     return openMini(kind, r => {
       if (!r) return log('The oxygen machine is still broken. Tap FIX to try again.', 'warn', null);
       S.o2Fixes++; repaired('o2');
@@ -570,22 +586,15 @@ function openFix(k) {
     if (!r) return log('The water recycler is still broken. Tap FIX to try again.', 'warn', null);
     repaired('h2o'); spill('h2o', Math.max(0, 75 - r.resource) / 75 * 3, 'water');
   });
-  const n = at('work').some(c => c.job === 'engineer') || LV().hints ? 3 : 4;
-  const plugs = [['#ff4d5e', '●'], ['#37d6ff', '▲'], ['#4be38a', '■'], ['#ffb938', '◆']].slice(0, n);
-  const order = plugs.map((_, i) => i).sort(() => Math.random() - 0.5);
-  const btn = (i, side) => `<button data-i="${i}" data-side="${side}" style="background:${plugs[i][0]};border-color:${plugs[i][0]}">${plugs[i][1]}</button>`;
-  $('#card').innerHTML = `<h2>🔧 FIX: ${SYSTEMS[k].name.toUpperCase()}</h2><p>Tap a plug on the left, then its matching socket on the right.</p>
-    <div class="wires"><div>${plugs.map((_, i) => btn(i, 'L')).join('')}</div><div>${order.map(i => btn(i, 'R')).join('')}</div></div>`;
-  $('#modal').classList.add('show', 'fixing'); SFX.play('whoosh');
-  let picked = null, done = 0;
-  $('#card').querySelectorAll('.wires button').forEach(b => b.onclick = () => {
-    if (b.dataset.side === 'L') {
-      $('#card').querySelectorAll('.pick').forEach(p => p.classList.remove('pick'));
-      picked = b; b.classList.add('pick'); SFX.play('click');
-    } else if (picked && picked.dataset.i === b.dataset.i) {
-      picked.classList.remove('pick'); picked.classList.add('done'); b.classList.add('done'); picked = null; SFX.play('plug');
-      if (++done === n) { $('#modal').classList.remove('show', 'fixing'); repaired(k); render(); }
-    } else SFX.play('deny');
+  if (k === 'shield') return openMini('sy', r => {
+    if (!r) return log('The shield machine is still broken. Tap FIX to try again.', 'warn', null);
+    repaired('shield');
+  });
+  S.cmFor = 'farm';
+  return openMini('cm', r => {
+    S.cmFor = null;
+    if (!r) return log('The grow lights are still broken. Tap FIX to try again.', 'warn', null);
+    repaired('farm');
   });
 }
 
@@ -594,9 +603,10 @@ function openFix(k) {
 const MINI = {
   gg: { title: '🌱 GREENHOUSE GUARD', sub: 'Shield the plants from the storm', color: '#4be38a', big: false,
         src: () => `greenhouse-guard.html?embed=1&waves=${cur().sev >= 2 && !LV().hints ? 2 : 1}&health=${Math.round(S.garden)}`, leave: 'Leave plants unprotected' },
-  cm: { title: '🛰️ COSMIC MATCH', sub: 'Match the NASA pictures to reboot the oxygen machine', color: '#37d6ff', big: true, src: () => 'cosmic-match.html?embed=1', leave: 'Back to base' },
+  cm: { title: '🛰️ COSMIC MATCH', sub: 'Match the NASA pictures to reboot the computer', color: '#37d6ff', big: true, src: () => 'cosmic-match.html?embed=1' + (S.cmFor === 'farm' ? '&system=Grow%20Light' : ''), leave: 'Back to base' },
   lp: { title: '💧 LEAK PATROL', sub: 'Seal the leaks to restart the water recycler', color: '#7fd8ff', big: false, src: () => 'leak-patrol.html?embed=1', leave: 'Back to base' },
   ss: { title: '🫧 SCRUBBER SPRINT', sub: 'Trap the CO₂ to restart the air system', color: '#a7ffdc', big: false, src: () => 'scrubber-sprint.html?embed=1', leave: 'Back to base' },
+  sy: { title: '🛡️ SHIELD SYNC', sub: 'Lock the water-wall pumps back in', color: '#5ad8ff', big: true, src: () => 'shield-sync.html?embed=1', leave: 'Back to base' },
   sr: { title: '⚡ SOLAR REBOOT', sub: 'Reconnect the solar panels', color: '#ffb938', big: true, src: () => 'solar-panels.html?embed=1', leave: 'Back to base' },
 };
 // A mini-game sends { finished: true } the moment it is won, and a second message when the player taps its
@@ -624,11 +634,12 @@ function openMini(kind, done) {
 function closeMini(result) {
   const w = $('#ggwrap'); if (!w) return;
   w.classList.add('closing'); SFX.play('whooshout');
+  if (result) S.minis[S.gg] = true;
   setTimeout(() => { w.remove(); S.gg = false; const d = miniDone; miniDone = null; lastWalk = performance.now(); d && d(result); render(); }, 380);
 }
 addEventListener('message', e => {
   if (e.origin !== location.origin || !e.data || !S.gg) return;
-  const src = { 'greenhouse-guard': 'gg', 'cosmic-match': 'cm', 'solar-reboot': 'sr', 'leak-patrol': 'lp', 'scrubber-sprint': 'ss' }[e.data.source];
+  const src = { 'greenhouse-guard': 'gg', 'cosmic-match': 'cm', 'solar-reboot': 'sr', 'leak-patrol': 'lp', 'scrubber-sprint': 'ss', 'shield-sync': 'sy' }[e.data.source];
   if (src !== S.gg) return;
   const result = src === 'cm' || src === 'sr' ? e.data.ok : e.data;
   if (e.data.finished) {                       // won, but still looking at the results screen
@@ -719,7 +730,8 @@ function debrief() {
   const worst = Math.max(...S.crew.map(c => c.dose));
   const last = !S.endless && S.round === EVENTS.length - 1, aurora = !S.endless && ev.key === '2017';
   SFX.ambience('off'); SFX.play('allclear'); SFX.say('The storm has passed. Stand by for your debrief.', 'capcom', true);
-  Learn.award('first');
+  $('#caption').className = '';
+  const firstBadge = Learn.award('first');
   // "today's choices, tomorrow's costs": the trade-off report
   const costs = [];
   if (S.stats.caught.length) costs.push(`☢️ ${S.stats.caught.join(' and ')} ${S.stats.caught.length > 1 ? 'were' : 'was'} outside the shelter when the storm hit and soaked up extra radiation. Dose never goes back down.`);
@@ -732,6 +744,7 @@ function debrief() {
     <h2>STORM ${S.round + 1} SURVIVED!</h2>
     <ul class="crewlist">${S.crew.map(crewLine).join('')}</ul>
     <p>Highest crew dose so far: <b>${Math.round(worst * 10)} mSv</b> ${Learn.chip('dose', 'mSv')} · NASA's career limit for astronauts is 600 mSv.</p>
+    ${firstBadge ? '<p class="newbadge">🏅 Badge earned: <b>First Storm</b>! Tap 📖 Logbook any time to see all your badges.</p>' : ''}
     <h3>${ev.mins != null ? 'THIS REALLY HAPPENED' : 'REAL FLARE, PRACTICE STORM'}: ${ev.title.toUpperCase()}</h3>
     <div class="real">${ev.fact}</div>
     ${ev.flares ? swarmPanel(ev) : stormPanel(ev)}
@@ -776,6 +789,9 @@ function endGame() {
   const give = (id, cond) => { if (cond && Learn.award(id)) fresh.push(id); };
   give('safe', alive.length === 4); give('quiz', S.quizTotal >= 4 && S.quizRight === S.quizTotal); give('garden', alive.length && S.garden > 80);
   give('fixer', S.fixes >= 5); give('director', rating === 'FLIGHT DIRECTOR');
+  give('minis', ['gg', 'cm', 'lp', 'ss', 'sy', 'sr'].every(k => S.minis[k]));
+  give('swarm', alive.length === 4 && !S.endless && EVENTS[S.round] && EVENTS[S.round].key === 'swarm');
+  const nBadges = L.badges.length, allBadges = Object.keys(Learn.BADGES).length;
   L.plays++; const record = score > L.best; if (record) L.best = score; Learn.save();
   SFX.play(alive.length ? 'win' : 'lose');
   SFX.say(alive.length ? `Mission complete. Your flight readiness rating is ${rating.toLowerCase()}. Well done, Commander.` : 'Mission cut short. Every astronaut trains many times. Try again, Commander.', 'capcom', true);
@@ -785,7 +801,8 @@ function endGame() {
     <p class="scoreline">Score <b>${score}</b>${record ? ' <em>NEW BEST!</em>' : ` · best ${L.best}`} · Science ★ <b>${Math.floor(S.science)}</b> · Quiz <b>${S.quizRight}/${S.quizTotal}</b> · Storms survived <b>${S.round + (alive.length ? 1 : 0)}</b></p>
     <ul class="crewlist">${S.crew.map(crewLine).join('')}</ul>
     ${S.crew[0].out && alive.length ? `<p>Commander ${esc(S.crew[0].name)} needed the medical bay; ${esc(alive[0].name)} led the crew.</p>` : ''}
-    ${fresh.length ? `<h3>NEW BADGES</h3><div class="badges">${fresh.map(id => `<div class="got"><span>${Learn.BADGES[id][0]}</span><b>${Learn.BADGES[id][1]}</b></div>`).join('')}</div>` : ''}
+    <h3>YOUR BADGES: ${nBadges} OF ${allBadges}${fresh.length ? ` · ${fresh.length} NEW!` : ''}</h3>
+    ${Learn.badgeGrid(fresh)}
     <p>Mission length: ${clock(S.hours).replace(' · ', ', ')} · Supplies left: oxygen ${T.o2.toFixed(1)} kg, water ${T.h2o.toFixed(1)} kg, food ${T.food.toFixed(1)} kg</p>
     <p class="src">Fact cards collected: <b>${L.cards.length} / ${Object.keys(Learn.CARDS).length}</b>. Play again to find them all. Storm 1 changes whenever the real Sun does.</p>
     <button class="go" id="go">Play again ▶</button>
@@ -868,6 +885,7 @@ function launch() {
 }
 function startCut(type) {
   $('#modal').classList.remove('show'); Learn.closeOverlay();
+  $('#caption').className = '';
   S.phase = 'cut'; S.cut = { type, t: 0, dur: type === 'launch' ? 8 : 26 };
   if (type === 'launch') { SFX.play('launch'); SFX.say('Three. Two. One. Lift off! Next stop, the Moon.', 'capcom', true); }
   else { SFX.play('aurora'); SFX.say('One more thing, Commander. The storm you just survived also reached Mars. The whole planet glowed with an aurora twenty five times brighter than any seen there before.', 'capcom', true); Learn.flash('aurora'); }

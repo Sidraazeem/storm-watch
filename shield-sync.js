@@ -1,5 +1,8 @@
 (function(){
  'use strict';
+ // Embedded in the main Storm Watch game (shield-sync.html?embed=1): the result is sent back to the game.
+ const EMBED=new URLSearchParams(location.search).has('embed');
+ const tell=(ok,finished=false,pumps=0)=>{try{parent.postMessage({source:'shield-sync',ok,finished,pumps},location.origin);}catch{}};
  const $=s=>document.querySelector(s),centers=[.25,.72,.14,.61,.34,.82],half=.17,limit=12;
  let s,last=0,raf,quiet=false,motion=!matchMedia('(prefers-reduced-motion: reduce)').matches,audio,bus,best=0;
  try{best=Math.max(0,Number(localStorage.getItem('storm-shield-sync-best'))||0);}catch{}
@@ -22,7 +25,7 @@
  }
  function finish(){s.phase='end';best=Math.max(best,s.score);try{localStorage.setItem('storm-shield-sync-best',String(best));}catch{}
   const online=Math.floor(s.locks/2);$('#ss-rating').textContent=online===3?'SHIELD READY!':online?'PUMPS RECOVERED!':'TRY ANOTHER SYNC!';$('.ls-stars').textContent='★'.repeat(online)+'☆'.repeat(3-online);
-  $('#ss-summary').textContent=`${online} of 3 pumps online · ${s.locks} locks · ${s.perfect} perfect hits · ${s.score} points. Best: ${best}.`;$('.ls-result').hidden=false;sound('win');$('#ss-replay').focus();render();
+  $('#ss-summary').textContent=`${online} of 3 pumps online · ${s.locks} locks · ${s.perfect} perfect hits · ${s.score} points. Best: ${best}.`;$('.ls-result').hidden=false;sound('win');if(EMBED){$('#ss-replay').textContent=online?'Continue →':'Try again ↻';if(online)tell(true,true,online);}$('#ss-replay').focus();render();
  }
  function lock(){
   if(!['practice','play'].includes(s.phase))return;
@@ -48,7 +51,7 @@
  function frame(t){const dt=Math.min(.05,(t-last)/1000)||0;last=t;if(!document.hidden&&['practice','play'].includes(s.phase)){s.pointer=(s.pointer+dt/(2.7-Math.floor(s.locks/2)*.16))%1;if(s.phase==='play'){s.time+=dt;if(s.time>=limit)finish();}}
   if(s.phase!=='paused'){s.effects=s.effects.filter(f=>{f.t-=dt;if(f.t<=0){f.node.remove();return false;}return true;});}render();raf=requestAnimationFrame(frame);
  }
- $('#ss-lock').onclick=lock;$('#ss-pause').onclick=pause;$('#ss-reset').onclick=()=>{reset();$('#ss-lock').focus();};$('#ss-replay').onclick=()=>{reset();$('#ss-lock').focus();};
+ $('#ss-lock').onclick=lock;$('#ss-pause').onclick=pause;$('#ss-reset').onclick=()=>{reset();$('#ss-lock').focus();};$('#ss-replay').onclick=()=>{if(EMBED&&Math.floor(s.locks/2)>0)return tell(true,false,Math.floor(s.locks/2));reset();$('#ss-lock').focus();};
  document.addEventListener('keydown',e=>{if(e.code==='Space'&&!e.target.closest('button,a,summary')){e.preventDefault();lock();}});
  $('#ss-sound').onclick=()=>{quiet=!quiet;if(bus)bus.gain.setValueAtTime(quiet?0:.6,audio.currentTime);$('#ss-sound').textContent=quiet?'Sound off 🔇':'Sound on 🔊';$('#ss-sound').setAttribute('aria-pressed',String(!quiet));};$('#ss-motion').onclick=()=>{motion=!motion;syncMotion();};
  document.addEventListener('visibilitychange',()=>{if(document.hidden&&['practice','play'].includes(s.phase))pause();syncMotion();});window.addEventListener('pagehide',()=>{if(['practice','play'].includes(s.phase))pause();cancelAnimationFrame(raf);film.pause();});window.addEventListener('pageshow',e=>{if(e.persisted){last=performance.now();syncMotion();raf=requestAnimationFrame(frame);}});

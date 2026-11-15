@@ -9,12 +9,16 @@ A browser game for the NASA Space Apps Challenge 2026, **Build a Junior Astronau
 1. **Pack the rocket on Earth.** It lifts only 10 crates, so more supplies means less gear (spare parts, radiation vests, science kit, battery).
 2. **Launch, then run the base.** Drag astronauts between rooms. Outside they collect science stars but have no protection.
 3. **Storm warning.** Mission Control radios in a real flare from NASA's records. A Storm Tracker shows its class, sunspot region and the real warning time. Get everyone down to the Storm Shelter.
-4. **Radiation storm.** Share limited power between oxygen, water, food and the water-wall shield. Machines break; three team-built mini-games fix them:
-   - **Cosmic Match** reboots the oxygen machine
+4. **Radiation storm.** Share limited power between oxygen, water, food and the water-wall shield. Machines break, and six team-built mini-games fix them. Every mission includes each one at least once:
+   - **Leak Patrol** restarts the water recycler
+   - **Scrubber Sprint** and **Cosmic Match** restart the oxygen machine
+   - **Shield Sync** recalibrates the water-wall shield pumps
+   - **Cosmic Match** also reboots the grow lights
    - **Greenhouse Guard** shields the plants in severe storms
    - **Solar Reboot** brings the solar panels back online
 5. **Debrief.** What really happened in that storm, a quiz question, and a report of what each choice cost.
-6. **Finale.** After the 2017 storm, the aurora it caused at Mars (seen by NASA's MAVEN), then a Flight Readiness Rating and badges. Endless mode continues with more real storms.
+6. **Five rounds.** Four real storms (the latest flare, May 2023, August 2023, September 2017), then the aurora the 2017 storm caused at Mars (seen by NASA's MAVEN), then the finale: the **Flare Swarm**, four real X-class flares from one sunspot in May 2024, back to back.
+7. **Rating and badges.** A Flight Readiness Rating and a checklist of ten badges. Endless mode continues with more real storms.
 
 ## What the challenge asks for, and where it is
 

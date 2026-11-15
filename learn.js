@@ -61,6 +61,8 @@ const Learn = (() => {
     facts10: ['📚', 'Fact Finder', 'Collect 10 fact cards'],
     factsAll:['🏅', 'Space Scholar', 'Collect every fact card'],
     director:['⭐', 'Flight Director', 'Earn the top rating'],
+    minis:   ['🎮', 'Game Master', 'Win all six mini-games in one mission'],
+    swarm:   ['🔥', 'Swarm Survivor', 'Beat the Flare Swarm with all four crew'],
   };
 
   // ---------- saved progress (this device only) ----------
@@ -95,12 +97,14 @@ const Learn = (() => {
   // During play a card pauses the base until the player taps "Got it", so nothing is missed while reading.
   // The game sets these: hold() = pause for this card?  wait() = not now (a mini-game or puzzle is open)  onHold(on) = pause / resume.
   const hooks = { hold: null, wait: null, onHold: null };
-  let toastTimer, waitTimer, pending = [];
+  let toastTimer, waitTimer, pending = [], shown = new Set();
   function flash(id, good = true) {
     const c = CARDS[id]; if (!c) return false;
+    if (shown.has(id)) return false;                  // each card shows at most once per mission
+    shown.add(id);
     const isNew = !log.cards.includes(id);
     if (isNew) { log.cards.push(id); save(); checkFactBadges(); }
-    else if (Math.random() < 0.6) return false;       // already collected: only show it again sometimes
+    else if (Math.random() < 0.5) return false;       // already in the Logbook: only a reminder now and then
     pending.push({ id, good, isNew }); showNext();
     return isNew;
   }
@@ -135,6 +139,9 @@ const Learn = (() => {
     if (log.cards.length >= Object.keys(CARDS).length) award('factsAll');
   }
 
+  // every badge, earned ones lit up (fresh = earned just now)
+  const badgeGrid = (fresh = []) => `<div class="badges">${Object.entries(BADGES).map(([k, b]) => `<div class="${log.badges.includes(k) ? 'got' : ''}${fresh.includes(k) ? ' new' : ''}" title="${b[2]}"><span>${b[0]}</span><b>${b[1]}</b><small>${fresh.includes(k) ? 'NEW!' : b[2]}</small></div>`).join('')}</div>`;
+  const reset = () => { shown = new Set(); pending = []; };
   function logbook() {
     const total = Object.keys(CARDS).length;
     overlay(`<h2>CADET LOGBOOK</h2>
@@ -181,6 +188,6 @@ const Learn = (() => {
     });
   }
 
-  return { GLOSSARY, CARDS, BADGES, hooks, chip, chips, explain, flash, award, logbook, sources, quiz, overlay, closeOverlay,
+  return { GLOSSARY, CARDS, BADGES, hooks, badgeGrid, reset, chip, chips, explain, flash, award, logbook, sources, quiz, overlay, closeOverlay,
     get log() { return log; }, save };
 })();
