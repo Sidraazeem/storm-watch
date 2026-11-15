@@ -150,7 +150,7 @@ Both pull requests are merged, plus a full pass on gameplay, graphics, sound and
 
 - **Storm order:** latest live flare, May 2023 (M4.2), August 2023 (X1.5, Quan's pick), September 2017 (X8.2) with the Mars aurora, then the finale **Flare Swarm** (Quan's idea): four real X flares from region 13664, May 8-11 2024. All fetched live from NASA DONKI with saved copies.
 - **Shield Sync** (new mini-game) is plugged in for shield repairs. The old plug puzzle is removed; the grow lights are rebooted with Cosmic Match.
-- **Every mini-game appears in every mission:** one planned breakdown per storm ( in ), on top of surprise breakdowns, which are capped at 2 per storm on Cadet and Pilot.
+- **Every mini-game appears in every mission:** one planned breakdown per storm (SHOWCASE in game.js), on top of surprise breakdowns, which are capped at 2 per storm on Cadet and Pilot.
 - **Fixes from the Nov 15 playtest:** each fact card shows at most once per mission; a debrief can no longer open over a repair (all repairs pause the base); the astronaut who runs to fix a machine goes back to safety afterwards; long real warning times no longer drain days of supplies; Cadet keeps 2 kW more power in storms.
 - **Badges:** the end screen shows the whole checklist (10 badges, new ones marked) and the Logbook button shows the count.
 - Checked with an automated player on Cadet: five rounds, all crew at 100% health, all six mini-games played, no repeated cards, no errors. Shield Sync was also played through its own controls. Not yet played start to finish by a person at normal speed.
