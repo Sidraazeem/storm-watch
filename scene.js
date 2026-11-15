@@ -461,13 +461,9 @@ function drawAurora(ts, t) {
   g.fillStyle = 'rgba(255,255,255,.75)'; g.beginPath(); g.ellipse(mx, my - mr + 8, 46, 11, 0, 0, 7); g.fill(); g.fillStyle = `rgba(150,110,255,${0.25 * k})`; g.fillRect(mx - mr, my - mr, mr * 2, mr * 2); g.fillStyle = 'rgba(2,3,10,.5)'; circ(mx + 110, my + 20, mr + 20); g.fill(); g.restore();
   const oa = ts / 1400, ox = mx + Math.cos(oa) * 200, oy = my + Math.sin(oa) * 70; g.fillStyle = '#e4eaf1'; g.fillRect(ox - 5, oy - 3, 10, 6); g.fillStyle = '#3d86f0'; g.fillRect(ox - 15, oy - 2, 8, 4); g.fillRect(ox + 7, oy - 2, 8, 4);
   txt('MAVEN', ox, oy - 10, 10, '#9fc4ff', 'center');
-  txt('MAVEN\'S CLOSE-UP VIEW', mx, my - mr - 44, 11, '#b9a6ff', 'center');
-  // the Moon in front: your crew on the horizon. From here Mars (about 390 million km away in Sept 2017) is only a red dot.
-  const dot = [560, 452];
-  g.setLineDash([4, 6]); g.strokeStyle = 'rgba(255,150,110,.35)'; g.lineWidth = 1;
-  g.beginPath(); g.moveTo(dot[0], dot[1]); g.lineTo(mx + mr * 0.7, my - mr * 0.7); g.moveTo(dot[0], dot[1]); g.lineTo(mx + mr * 0.7, my + mr * 0.7); g.stroke(); g.setLineDash([]);
-  g.fillStyle = '#ff7a52'; g.shadowColor = '#ff7a52'; g.shadowBlur = 8; circ(dot[0], dot[1], 2.4); g.fill(); g.shadowBlur = 0;
-  txt('Mars from the Moon:', dot[0], dot[1] + 20, 11, '#ffb49a', 'center'); txt('a tiny red dot, about', dot[0], dot[1] + 34, 11, '#ffb49a', 'center'); txt('390 million km away', dot[0], dot[1] + 48, 11, '#ffb49a', 'center');
+  txt('MARS · shown close up, not to scale', mx, my - mr - 44, 11, '#b9a6ff', 'center');
+  txt('In Sept 2017 Mars was about 390 million km from the Moon', mx, my + mr + 58, 11, '#ffb49a', 'center');
+  // the Moon in front: your crew on the horizon, looking toward Mars (drawn close up, not to scale)
   const MX = 250, MY = 780, RX = 430, RY = 250, ground = x => MY - RY * Math.sqrt(Math.max(0, 1 - ((x - MX) / RX) ** 2));
   const mg = g.createLinearGradient(0, MY - RY, 0, H); mg.addColorStop(0, '#9aa0ab'); mg.addColorStop(0.15, '#5d626d'); mg.addColorStop(1, '#2a2d34');
   g.fillStyle = mg; g.beginPath(); g.ellipse(MX, MY, RX, RY, 0, 0, 7); g.fill();
