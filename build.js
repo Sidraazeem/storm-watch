@@ -40,7 +40,7 @@ fs.cpSync(path.join(src, 'assets'), path.join(out, 'assets'), { recursive: true 
 // the mini-game pages get the same version tag, so a browser never runs an old mini-game script
 for (const f of fs.readdirSync(out).filter(f => f.endsWith('.html') && f !== 'index.html')) {
   const p = path.join(out, f);
-  fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace(/(src|href)="(?!https?:|data:|#)([^"?]+\.(?:js|css))"/g, `$1="$2?v=${v}"`));
+  fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace(/(src|href)="(?!https?:|data:|#)([^"?]+\.(?:js|css))(?:\?[^"]*)?"/g, `$1="$2?v=${v}"`));
 }
 fs.cpSync(path.join(src, 'vendor'), path.join(out, 'vendor'), { recursive: true });   // DiceBear avatars (bundled for offline play)
 // crew photos (optional): copy only the image files
